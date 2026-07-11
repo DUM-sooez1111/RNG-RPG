@@ -147,7 +147,11 @@ const dungeonMonsters = [
   { name: '보랏빛 슬라임', x: 11 * TILE, y: 5 * TILE, homeX: 11 * TILE, homeY: 5 * TILE, hp: 34, maxHp: 34, baseHp: 34, reward: 100, baseReward: 100, experience: 35, baseExperience: 35, damage: 10, baseDamage: 10, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#9a69ce' },
   { name: '동굴 박쥐', x: 17 * TILE, y: 10 * TILE, homeX: 17 * TILE, homeY: 10 * TILE, hp: 42, maxHp: 42, baseHp: 42, reward: 100, baseReward: 100, experience: 45, baseExperience: 45, damage: 12, baseDamage: 12, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#7b82c8' },
   { name: '불꽃 골렘', x: 20 * TILE, y: 5 * TILE, homeX: 20 * TILE, homeY: 5 * TILE, hp: 58, maxHp: 58, baseHp: 58, reward: 150, baseReward: 150, experience: 65, baseExperience: 65, damage: 16, baseDamage: 16, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#d1724f' },
-  { name: '그림자 늑대', x: 13 * TILE, y: 14 * TILE, homeX: 13 * TILE, homeY: 14 * TILE, hp: 50, maxHp: 50, baseHp: 50, reward: 150, baseReward: 150, experience: 55, baseExperience: 55, damage: 14, baseDamage: 14, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#54647d' },
+    { name: '그림자 늑대', x: 13 * TILE, y: 14 * TILE, homeX: 13 * TILE, homeY: 14 * TILE, hp: 50, maxHp: 50, baseHp: 50, reward: 150, baseReward: 150, experience: 55, baseExperience: 55, damage: 14, baseDamage: 14, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#54647d' },
+    { name: '독버섯', x: 7 * TILE, y: 6 * TILE, homeX: 7 * TILE, homeY: 6 * TILE, hp: 38, maxHp: 38, baseHp: 38, reward: 110, baseReward: 110, experience: 42, baseExperience: 42, damage: 11, baseDamage: 11, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#75b35d', kind: 'mushroom' },
+    { name: '서리 정령', x: 8 * TILE, y: 13 * TILE, homeX: 8 * TILE, homeY: 13 * TILE, hp: 46, maxHp: 46, baseHp: 46, reward: 130, baseReward: 130, experience: 52, baseExperience: 52, damage: 13, baseDamage: 13, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#79d6ef', kind: 'wisp' },
+    { name: '해골 검사', x: 18 * TILE, y: 14 * TILE, homeX: 18 * TILE, homeY: 14 * TILE, hp: 64, maxHp: 64, baseHp: 64, reward: 180, baseReward: 180, experience: 72, baseExperience: 72, damage: 18, baseDamage: 18, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#d6d1ba', kind: 'skeleton' },
+    { name: '암흑 기사', x: 21 * TILE, y: 11 * TILE, homeX: 21 * TILE, homeY: 11 * TILE, hp: 82, maxHp: 82, baseHp: 82, reward: 220, baseReward: 220, experience: 90, baseExperience: 90, damage: 21, baseDamage: 21, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#6d638e', kind: 'knight' },
   ];
 
 function rollTier() {
@@ -927,7 +931,11 @@ function drawShopSign() {
 function drawMonster(monster) {
   const { x, y } = monster;
   ctx.fillStyle = 'rgba(16, 17, 30, .35)'; ctx.beginPath(); ctx.ellipse(x + 16, y + 25, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = monster.color; ctx.beginPath(); ctx.arc(x + 16, y + 15, 14, Math.PI, 0); ctx.lineTo(x + 30, y + 25); ctx.lineTo(x + 2, y + 25); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = monster.color; ctx.beginPath(); ctx.arc(x + 16, y + 15, 14, Math.PI, 0); ctx.lineTo(x + 30, y + 25); ctx.lineTo(x + 2, y + 25); ctx.closePath(); ctx.fill();
+    if (monster.kind === 'mushroom') { ctx.fillStyle = '#d77978'; ctx.beginPath(); ctx.arc(x + 16, y + 10, 14, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#fff0cb'; ctx.beginPath(); ctx.arc(x + 11, y + 7, 2, 0, Math.PI * 2); ctx.arc(x + 20, y + 11, 2, 0, Math.PI * 2); ctx.fill(); }
+    if (monster.kind === 'wisp') { ctx.globalAlpha = .45; ctx.fillStyle = '#b9f6ff'; ctx.beginPath(); ctx.arc(x + 16, y + 11, 17, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    if (monster.kind === 'skeleton') { ctx.strokeStyle = '#f0ead5'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 16, y + 13); ctx.lineTo(x + 16, y + 25); ctx.moveTo(x + 8, y + 20); ctx.lineTo(x + 24, y + 20); ctx.stroke(); }
+    if (monster.kind === 'knight') { ctx.fillStyle = '#3e3a57'; ctx.fillRect(x + 7, y + 4, 18, 13); ctx.strokeStyle = '#ced9ec'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 26, y + 23); ctx.lineTo(x + 32, y + 7); ctx.stroke(); }
   ctx.fillStyle = '#fff7e4'; ctx.beginPath(); ctx.arc(x + 11, y + 14, 3, 0, Math.PI * 2); ctx.arc(x + 21, y + 14, 3, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2d2638'; ctx.beginPath(); ctx.arc(x + 11, y + 14, 1.2, 0, Math.PI * 2); ctx.arc(x + 21, y + 14, 1.2, 0, Math.PI * 2); ctx.fill();
   rect(x, y - 8, 32, 4, '#442f44'); rect(x + 1, y - 7, 30 * Math.max(monster.hp, 0) / monster.maxHp, 2, '#ee7272');
