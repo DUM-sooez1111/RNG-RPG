@@ -31,6 +31,11 @@ const skillPanelPoints = document.querySelector('#skill-panel-points');
 const skillNodes = document.querySelectorAll('.skill-node');
 const shopPanel = document.querySelector('#shop-panel');
 const shopClose = document.querySelector('#shop-close');
+const enchantPanel = document.querySelector('#enchant-panel');
+const enchantClose = document.querySelector('#enchant-close');
+const enchantStatus = document.querySelector('#enchant-status');
+const enchantWeaponButton = document.querySelector('#enchant-weapon');
+const enchantArmorButton = document.querySelector('#enchant-armor');
 const capacityBuy = document.querySelector('#capacity-buy');
 const capacityPrice = document.querySelector('#capacity-price');
 const shopCapacity = document.querySelector('#shop-capacity');
@@ -87,9 +92,17 @@ const portal = { x: 688, y: 146, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
 const shopDoor = { x: 214, y: 180 };
 const fountain = { x: 148, y: 378 };
+const enchantPillar = { x: 650, y: 456 };
 const villageObstacles = [
-  // 집 윗부분만 막아 문, 분수, 포탈 앞은 항상 접근 가능하게 둡니다.
+  // 배경의 집·수풀·절벽을 막아 길 밖으로 걸어 나가지 못하게 합니다.
   { x: 70, y: 68, width: 230, height: 92 },
+  { x: 18, y: 185, width: 75, height: 135 },
+  { x: 705, y: 335, width: 80, height: 180 },
+  { x: 290, y: 510, width: 250, height: 48 },
+];
+const grandVillageObstacles = [
+  { x: 150, y: 104, width: 136, height: 98 }, { x: 418, y: 93, width: 154, height: 105 },
+  { x: 590, y: 258, width: 136, height: 98 }, { x: 278, y: 338, width: 145, height: 100 },
 ];
 const coinDrops = [
   { x: 8 * TILE + 10, y: 3 * TILE + 11, value: 5, taken: false },
@@ -106,6 +119,7 @@ let rolling = false;
 let rollFrame = 0;
 let coins = 0;
 let inDungeon = false;
+let inGrandVillage = false;
 let autoBattle = false;
 let autoDice = false;
 let nextAutoDiceAt = 0;
@@ -148,6 +162,14 @@ const tiers = {
   transcendent: { label: '초월', color: '#6dffc0', bonus: 98, rank: 7, chance: .0001 },
   absolute: { label: '절대', color: '#fff2a6', bonus: 140, rank: 8, chance: .00003 },
 };
+const enchantRanks = [
+  { label: '미각인', bonus: 0, color: '#b7c4d2' },
+  { label: '마력', bonus: 2, color: '#9bc7ff' }, { label: '불꽃', bonus: 5, color: '#ff9a72' },
+  { label: '서리', bonus: 9, color: '#9ff3ff' }, { label: '폭풍', bonus: 14, color: '#b5a3ff' },
+  { label: '태양', bonus: 20, color: '#ffe273' }, { label: '달빛', bonus: 27, color: '#d2c6ff' },
+  { label: '용혼', bonus: 35, color: '#ff8eaa' }, { label: '성좌', bonus: 44, color: '#83e5ff' },
+  { label: '심연', bonus: 54, color: '#b179ff' }, { label: '천상', bonus: 66, color: '#fff6b4' },
+];
 const companionPool = ['구름 고양이', '불꽃 여우', '달빛 토끼', '꼬마 드래곤', '수정 요정', '별빛 강아지', '번개 다람쥐', '바다 거북', '꽃 정령', '미니 골렘'];
 const companionSkills = {
   '구름 고양이': { name: '구름 치유', cooldown: 5000, color: '#bcefff', description: '체력 18 회복' },
@@ -237,9 +259,13 @@ function rollTier() {
 function itemId() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 
 function normalizeGear(item) {
-  if (typeof item === 'string') return { id: itemId(), name: item, tier: 'normal' };
-  return { id: item.id ?? itemId(), name: item.name, tier: tiers[item.tier] ? item.tier : 'normal' };
+  if (typeof item === 'string') return { id: itemId(), name: item, tier: 'normal', enchant: 0 };
+  return { id: item.id ?? itemId(), name: item.name, tier: tiers[item.tier] ? item.tier : 'normal', enchant: Math.max(0, Math.min(10, Math.floor(Number(item.enchant) || 0))) };
 }
+
+function enchantLevel(item) { return Math.max(0, Math.min(10, Math.floor(Number(item?.enchant) || 0))); }
+function enchantInfo(item) { return enchantRanks[enchantLevel(item)]; }
+function enchantText(item) { const level = enchantLevel(item); return level ? ` · ${enchantInfo(item).label} +${level}` : ''; }
 
 function equippedTier() {
   const gear = [inventory.equipped.weapon, inventory.equipped.armor].filter(Boolean);
@@ -254,6 +280,8 @@ function tileAt(x, y) {
 
 function isBlocked(x, y) {
   if (inDungeon) return x < TILE || y < TILE || x + player.size > canvas.width - TILE || y + player.size > canvas.height - TILE;
+  if (inGrandVillage) return x < 10 || y < 10 || x + player.size > canvas.width - 10 || y + player.size > canvas.height - 10
+    || grandVillageObstacles.some((obstacle) => x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height);
   if (villageBackgroundReady) {
     return x < 10 || y < 10 || x + player.size > canvas.width - 10 || y + player.size > canvas.height - 10
       || villageObstacles.some((obstacle) => x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height);
@@ -363,7 +391,27 @@ function isNearShop() {
   return Math.hypot(player.x - shopDoor.x, player.y - shopDoor.y) < 78;
 }
 
+function isNearEnchantPillar() {
+  return Math.hypot(player.x - enchantPillar.x, player.y - enchantPillar.y) < 70;
+}
+
+function updateAreaTransition() {
+  if (inDungeon) return;
+  if (!inGrandVillage && player.x > 708 && player.y < 108) {
+    inGrandVillage = true;
+    player.x = 112; player.y = 455;
+    dialogue.textContent = '거대한 대마을 지도로 들어왔습니다. 왼쪽 아래 관문으로 돌아갈 수 있어요.';
+    objective.textContent = '대마을 둘러보기';
+  } else if (inGrandVillage && player.x < 92 && player.y > 438) {
+    inGrandVillage = false;
+    player.x = 700; player.y = 96;
+    dialogue.textContent = '별빛 마을로 돌아왔습니다.';
+    objective.textContent = '마을을 둘러보세요';
+  }
+}
+
 function enterDungeon() {
+  inGrandVillage = false;
   inDungeon = true;
   dungeonMonsters.forEach((monster) => { monster.lastHit = 0; });
   player.x = 5 * TILE;
@@ -374,6 +422,7 @@ function enterDungeon() {
 
 function exitDungeon() {
   inDungeon = false;
+  inGrandVillage = false;
   autoBattle = false;
   updateAutoButton();
   player.x = portal.x - 58;
@@ -383,7 +432,8 @@ function exitDungeon() {
 }
 
 function interact() {
-  if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
+  if (inGrandVillage) dialogue.textContent = '대마을은 현재 탐험 지도입니다. 왼쪽 아래 관문으로 돌아가세요.';
+  else if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
   else if (!inDungeon && isNearPortal(portal)) enterDungeon();
   else if (inDungeon && isNearPortal(dungeonExit)) exitDungeon();
   else dialogue.textContent = inDungeon ? '귀환 포탈 가까이에서 상호작용 버튼을 눌러주세요.' : '루나 또는 던전 포탈 가까이에서 상호작용해 주세요.';
@@ -449,10 +499,12 @@ function updateStats() {
   const armorIndex = equipment.armor.indexOf(inventory.equipped.armor?.name);
   const weaponTierBonus = inventory.equipped.weapon ? tiers[inventory.equipped.weapon.tier].bonus : 0;
   const armorTierBonus = inventory.equipped.armor ? tiers[inventory.equipped.armor.tier].bonus : 0;
+  const weaponEnchantBonus = enchantInfo(inventory.equipped.weapon).bonus;
+  const armorEnchantBonus = enchantInfo(inventory.equipped.armor).bonus;
   playerStats.maxHealth = 100 + skills.bonusHealth;
   playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
-  playerStats.attack = playerStats.baseAttack + skills.bonusAttack + weaponTierBonus + (weaponIndex < 0 ? 0 : equipmentPower.weapon[weaponIndex]);
-  playerStats.defense = playerStats.baseDefense + skills.bonusDefense + armorTierBonus + (armorIndex < 0 ? 0 : equipmentPower.armor[armorIndex]);
+  playerStats.attack = playerStats.baseAttack + skills.bonusAttack + weaponTierBonus + weaponEnchantBonus + (weaponIndex < 0 ? 0 : equipmentPower.weapon[weaponIndex]);
+  playerStats.defense = playerStats.baseDefense + skills.bonusDefense + armorTierBonus + armorEnchantBonus + (armorIndex < 0 ? 0 : equipmentPower.armor[armorIndex]);
   const health = Number.isInteger(playerStats.health) ? playerStats.health : playerStats.health.toFixed(1);
   healthValue.textContent = `${health} / ${playerStats.maxHealth}`;
   attackValue.textContent = playerStats.attack;
@@ -469,7 +521,7 @@ function saveGame(showMessage = false) {
   try {
     const snapshot = {
       player: { x: player.x, y: player.y, direction: player.direction },
-          coins, inDungeon, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
+          coins, inDungeon, inGrandVillage, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
       playerStats: { health: playerStats.health },
       playerLevel: { ...playerLevel },
       quest: { ...quest },
@@ -493,6 +545,7 @@ function loadGame() {
     if (save.player) Object.assign(player, save.player);
     if (typeof save.coins === 'number') coins = save.coins;
     if (typeof save.inDungeon === 'boolean') inDungeon = save.inDungeon;
+    if (typeof save.inGrandVillage === 'boolean') inGrandVillage = save.inGrandVillage;
     if (typeof save.shopPrice === 'number') shopPrice = save.shopPrice;
       if (save.rebirth) Object.assign(rebirth, save.rebirth);
       if (save.cosmetics) Object.assign(cosmetics, save.cosmetics);
@@ -597,7 +650,7 @@ function pullCompanion() {
 
 function sellPrice(type, item) {
   const base = type === 'companion' ? 180 : type === 'weapon' ? 120 : 100;
-  return base * [1, 3, 8, 25, 80, 260, 850, 2800, 9000][tiers[item.tier].rank];
+  return base * [1, 3, 8, 25, 80, 260, 850, 2800, 9000][tiers[item.tier].rank] + (type === 'companion' ? 0 : enchantLevel(item) * base * 3);
 }
 
 function sellItem(type, item) {
@@ -652,7 +705,7 @@ function synthesize(type) {
   const bigSuccess = sourceIndex < order.length - 2 && Math.random() < Math.min(.12 * rebirth.luckMultiplier, .45);
   const nextTier = sourceTier === maximumTier ? maximumTier : order[Math.min(order.length - 1, sourceIndex + (bigSuccess ? 2 : 1))];
   const pool = type === 'companion' ? companionPool : equipment[type];
-  const item = { id: itemId(), name: pool[Math.floor(Math.random() * pool.length)], tier: nextTier };
+  const item = { id: itemId(), name: pool[Math.floor(Math.random() * pool.length)], tier: nextTier, enchant: 0 };
   inventory.items[type].push(item);
   inventory[type] += 1;
   if (!inventory.equipped[type] || ingredients.some((ingredient) => ingredient.id === inventory.equipped[type]?.id)) inventory.equipped[type] = item;
@@ -755,7 +808,7 @@ function renderItemList(type, list, items) {
       art.className = `item-art ${type}-art`;
       art.setAttribute('aria-hidden', 'true');
       const name = document.createElement('span');
-        name.textContent = type === 'companion' ? `[${tier.label}] ${item.name} · ${getCompanionSkill(item.name).name}` : `[${tier.label}] ${item.name}`;
+        name.textContent = type === 'companion' ? `[${tier.label}] ${item.name} · ${getCompanionSkill(item.name).name}` : `[${tier.label}] ${item.name}${enchantText(item)}`;
       button.append(art, name);
       button.addEventListener('click', () => equipItem(type, item));
       element.append(button);
@@ -780,7 +833,7 @@ function renderEquippedSlot(type, slot) {
         name.textContent = `[${tiers[item.tier].label}] ${item.name} · ${getCompanionSkill(item.name).name}`;
     } else {
       slot.className = `equipment-slot tier-${item.tier}`;
-      name.textContent = `[${tiers[item.tier].label}] ${item.name}`;
+      name.textContent = `[${tiers[item.tier].label}] ${item.name}${enchantText(item)}`;
     }
   } else {
     slot.className = 'equipment-slot';
@@ -800,7 +853,7 @@ function itemPower(type, item) {
   const tier = tiers[item.tier] ?? tiers.normal;
   if (type === 'companion') return tier.rank * 100;
   const index = equipment[type].indexOf(item.name);
-  return (index < 0 ? 0 : equipmentPower[type][index]) + tier.bonus;
+  return (index < 0 ? 0 : equipmentPower[type][index]) + tier.bonus + enchantInfo(item).bonus;
 }
 
 function bestItem(type) {
@@ -848,8 +901,34 @@ function setShopOpen(open) {
   if (open) updateShop();
 }
 
+function updateEnchantPanel() {
+  const describe = (item, label) => item
+    ? `${label}: [${tiers[item.tier].label}] ${item.name} · ${enchantInfo(item).label} +${enchantLevel(item)} · 능력치 +${enchantInfo(item).bonus}`
+    : `${label}: 장착한 장비가 없습니다.`;
+  enchantStatus.replaceChildren();
+  [describe(inventory.equipped.weapon, '무기'), describe(inventory.equipped.armor, '방어구')].forEach((text) => { const row = document.createElement('p'); row.textContent = text; enchantStatus.append(row); });
+  enchantWeaponButton.disabled = !inventory.equipped.weapon || enchantLevel(inventory.equipped.weapon) >= 10;
+  enchantArmorButton.disabled = !inventory.equipped.armor || enchantLevel(inventory.equipped.armor) >= 10;
+}
+
+function setEnchantOpen(open) {
+  enchantPanel.hidden = !open;
+  if (open) updateEnchantPanel();
+}
+
+function enchantEquipped(type) {
+  const item = inventory.equipped[type];
+  if (!item) { dialogue.textContent = `${type === 'weapon' ? '무기' : '방어구'}를 먼저 장착해 주세요.`; return; }
+  const level = enchantLevel(item);
+  if (level >= 10) { dialogue.textContent = `${item.name}은(는) 이미 천상 인챈트 +10입니다!`; return; }
+  item.enchant = level + 1;
+  const info = enchantInfo(item);
+  updateInventory(); updateEnchantPanel(); saveGame();
+  dialogue.textContent = `✦ ${item.name}에 ${info.label}의 별빛을 새겼습니다! 인챈트 +${item.enchant} (능력치 +${info.bonus})`;
+}
+
 function diceBounds() {
-  return { x: player.x + 1, y: player.y - 23, size: 20 };
+  return { x: player.x - 1, y: player.y - 31, size: 28 };
 }
 
 function rollDice() {
@@ -872,7 +951,7 @@ function rollDice() {
   setTimeout(() => {
     clearInterval(spinner);
     const type = available[Math.floor(Math.random() * available.length)];
-      const item = { id: itemId(), name: equipment[type][inventory[type] % equipment[type].length], tier: rollTier() };
+      const item = { id: itemId(), name: equipment[type][inventory[type] % equipment[type].length], tier: rollTier(), enchant: 0 };
     inventory[type] += 1;
     inventory.items[type].push(item);
     if (!inventory.equipped[type]) inventory.equipped[type] = item;
@@ -1106,17 +1185,24 @@ function drawCompanion() {
 
 function drawDice() {
   const { x, y, size } = diceBounds();
-  const hop = rolling ? (rollFrame === 1 ? -4 : rollFrame === 2 ? 2 : 0) : 0;
+  const time = performance.now();
+  const hop = rolling ? Math.sin(time / 52) * 6 - 3 : Math.sin(time / 460) * 1.5;
   const dy = y + hop;
+  const tier = tiers[equippedTier()];
+  const angle = rolling ? time / 85 : Math.sin(time / 1200) * .08;
   ctx.save();
-  ctx.fillStyle = 'rgba(6, 17, 25, .36)'; ctx.beginPath(); ctx.ellipse(x + size / 2, dy + size + 5, 11, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = rolling ? '#d79939' : '#b9c2cb'; ctx.beginPath(); ctx.moveTo(x + 2, dy + 6); ctx.lineTo(x + 16, dy + 10); ctx.lineTo(x + 16, dy + 24); ctx.lineTo(x + 2, dy + 19); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = rolling ? '#b77624' : '#8c98aa'; ctx.beginPath(); ctx.moveTo(x + 16, dy + 10); ctx.lineTo(x + 22, dy + 5); ctx.lineTo(x + 22, dy + 18); ctx.lineTo(x + 16, dy + 24); ctx.closePath(); ctx.fill();
-  const top = ctx.createLinearGradient(x + 4, dy + 2, x + 18, dy + 14);
-  top.addColorStop(0, '#ffffff'); top.addColorStop(.35, rolling ? '#ffe39a' : '#f7fafc'); top.addColorStop(1, rolling ? '#e7ab43' : '#ccd7e2');
-  ctx.fillStyle = top; ctx.beginPath(); ctx.moveTo(x + 2, dy + 6); ctx.lineTo(x + 9, dy + 1); ctx.lineTo(x + 22, dy + 5); ctx.lineTo(x + 16, dy + 10); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#526070'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#be4652'; [[7, 8], [13, 10], [18, 6]].slice(0, rolling ? rollFrame + 1 : 3).forEach(([dx, dotY]) => { ctx.beginPath(); ctx.arc(x + dx, dy + dotY, 1.35, 0, Math.PI * 2); ctx.fill(); });
+  ctx.fillStyle = 'rgba(6, 17, 25, .36)'; ctx.beginPath(); ctx.ellipse(x + size / 2, dy + size + 5, 15, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  const glow = ctx.createRadialGradient(x + size / 2, dy + size / 2, 3, x + size / 2, dy + size / 2, 28);
+  glow.addColorStop(0, `${tier.color}aa`); glow.addColorStop(1, `${tier.color}00`); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x + size / 2, dy + size / 2, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(x + size / 2, dy + size / 2); ctx.rotate(angle * .08);
+  const top = ctx.createLinearGradient(-12, -14, 13, 10); top.addColorStop(0, '#ffffff'); top.addColorStop(.35, tier.color); top.addColorStop(1, '#53657a');
+  ctx.fillStyle = top; ctx.beginPath(); ctx.moveTo(-13, -7); ctx.lineTo(0, -15); ctx.lineTo(14, -7); ctx.lineTo(0, 1); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#536276'; ctx.beginPath(); ctx.moveTo(-13, -7); ctx.lineTo(0, 1); ctx.lineTo(0, 16); ctx.lineTo(-13, 8); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#2d4159'; ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(14, -7); ctx.lineTo(14, 8); ctx.lineTo(0, 16); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#e8f7ff'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = '#172238'; [-5, 0, 5].forEach((dx, index) => { ctx.beginPath(); ctx.arc(dx, -6 + (index === 1 ? 2 : 0), 1.8, 0, Math.PI * 2); ctx.fill(); });
+  ctx.strokeStyle = tier.color; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -6, 8, -.15, Math.PI + .15); ctx.stroke();
+  if (rolling) { ctx.strokeStyle = '#fff6bc'; ctx.globalAlpha = .8; ctx.beginPath(); ctx.arc(0, 0, 20, angle, angle + Math.PI * 1.2); ctx.stroke(); }
   ctx.restore();
 }
 
@@ -1133,15 +1219,36 @@ function drawFountain() {
 
 function drawPortal() {
   const { x, y, size } = portal;
-  const pulse = 2 + Math.sin(performance.now() / 220) * 2;
-  const cx = x + size / 2; const cy = y + size / 2;
+  const time = performance.now(); const pulse = 1 + Math.sin(time / 260) * .8;
+  const cx = x + size / 2; const cy = y + size - 6;
   ctx.save();
-  const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 57); glow.addColorStop(0, 'rgba(238, 127, 255, .76)'); glow.addColorStop(1, 'rgba(143, 65, 241, 0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, 57, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(9, 11, 35, .58)'; ctx.beginPath(); ctx.ellipse(cx, y + size - 2, 29, 7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#4a3d68'; ctx.lineWidth = 12; ctx.beginPath(); ctx.ellipse(cx, cy, 20 + pulse, 28 + pulse, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = '#a987ed'; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(cx, cy, 18 + pulse, 26 + pulse, 0, 0, Math.PI * 2); ctx.stroke();
-  const core = ctx.createRadialGradient(cx - 5, cy - 8, 1, cx, cy, 25); core.addColorStop(0, '#fff2ff'); core.addColorStop(.35, '#cb60ff'); core.addColorStop(1, '#48218d'); ctx.fillStyle = core; ctx.beginPath(); ctx.ellipse(cx, cy, 13 + pulse / 2, 20 + pulse / 2, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f5dcff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('던전 · E', cx, y - 9); ctx.restore();
+  const floorGlow = ctx.createRadialGradient(cx, cy, 3, cx, cy, 62); floorGlow.addColorStop(0, 'rgba(207, 127, 255, .4)'); floorGlow.addColorStop(.42, 'rgba(139, 86, 227, .2)'); floorGlow.addColorStop(1, 'rgba(74, 47, 129, 0)'); ctx.fillStyle = floorGlow; ctx.beginPath(); ctx.ellipse(cx, cy, 60, 23, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'screen'; ctx.strokeStyle = '#d8a7ff'; ctx.globalAlpha = .66; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, cy, 35 + pulse * 2, 13 + pulse, 0, time / 1400, time / 1400 + Math.PI * 1.55); ctx.stroke(); ctx.beginPath(); ctx.ellipse(cx, cy, 27 - pulse, 9, 0, -time / 1100, -time / 1100 + Math.PI * 1.45); ctx.stroke();
+  const veil = ctx.createRadialGradient(cx, cy - 20, 2, cx, cy - 18, 31); veil.addColorStop(0, 'rgba(255, 240, 255, .7)'); veil.addColorStop(.35, 'rgba(204, 99, 255, .46)'); veil.addColorStop(1, 'rgba(100, 60, 194, 0)'); ctx.fillStyle = veil; ctx.beginPath(); ctx.ellipse(cx, cy - 18, 20 + pulse, 31 + pulse * 3, 0, 0, Math.PI * 2); ctx.fill();
+  for (let index = 0; index < 8; index += 1) { const angle = time / 900 + index * Math.PI * 2 / 8; const radius = 21 + (index % 3) * 7; const px = cx + Math.cos(angle) * radius; const py = cy - 7 + Math.sin(angle) * radius * .48 - (time / 450 + index * 8) % 18; ctx.fillStyle = index % 2 ? '#ffd7ff' : '#a7ddff'; ctx.beginPath(); ctx.arc(px, py, 1.2 + (index % 2), 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#f5dcff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('던전 · E', cx, y - 9); ctx.restore();
+}
+
+function drawEnchantPillar() {
+  const { x, y } = enchantPillar; const time = performance.now();
+  ctx.save();
+  const beam = ctx.createLinearGradient(x, y - 100, x, y + 14); beam.addColorStop(0, 'rgba(255, 243, 177, 0)'); beam.addColorStop(.45, 'rgba(255, 223, 112, .32)'); beam.addColorStop(1, 'rgba(255, 197, 85, .08)'); ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x - 20, y + 12); ctx.lineTo(x - 5, y - 96); ctx.lineTo(x + 6, y - 96); ctx.lineTo(x + 24, y + 12); ctx.closePath(); ctx.fill();
+  const glow = ctx.createRadialGradient(x, y, 3, x, y, 44); glow.addColorStop(0, 'rgba(255, 247, 178, .75)'); glow.addColorStop(1, 'rgba(255, 178, 65, 0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffe99a'; ctx.lineWidth = 2; ctx.globalAlpha = .84; ctx.beginPath(); ctx.ellipse(x, y + 9, 23 + Math.sin(time / 250) * 2, 8, 0, 0, Math.PI * 2); ctx.stroke(); ctx.strokeStyle = '#c88439'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 8, y + 9); ctx.lineTo(x - 2, y - 20); ctx.lineTo(x + 4, y - 20); ctx.lineTo(x + 10, y + 9); ctx.stroke();
+  for (let index = 0; index < 5; index += 1) { const phase = (time / 520 + index * 17) % 46; ctx.fillStyle = '#fff2a8'; ctx.beginPath(); ctx.arc(x + Math.sin(index * 2.8 + time / 500) * 15, y + 5 - phase, 1.8, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.fillStyle = '#fff2b3'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('인챈트 · R', x, y - 43); ctx.restore();
+}
+
+function drawGrandVillage() {
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height); sky.addColorStop(0, '#5ea0c4'); sky.addColorStop(.42, '#8ccaba'); sky.addColorStop(1, '#527f69'); ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#65a85b'; ctx.fillRect(0, 104, canvas.width, canvas.height - 104);
+  for (let y = 114; y < canvas.height; y += 36) for (let x = (y / 36 % 2) * 16; x < canvas.width; x += 46) { ctx.fillStyle = 'rgba(183, 231, 117, .16)'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#d7b372'; ctx.lineWidth = 43; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(63, 492); ctx.bezierCurveTo(184, 438, 148, 321, 322, 279); ctx.bezierCurveTo(480, 241, 474, 346, 727, 302); ctx.stroke(); ctx.strokeStyle = '#edcf93'; ctx.lineWidth = 30; ctx.stroke();
+  const house = (x, y, w, h, roof) => { ctx.save(); ctx.fillStyle = 'rgba(22, 48, 45, .26)'; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 10, w * .58, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d9b27a'; ctx.fillRect(x, y + 26, w, h - 26); ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 9, y + 29); ctx.lineTo(x + w / 2, y - 8); ctx.lineTo(x + w + 9, y + 29); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#754f37'; ctx.fillRect(x + w * .43, y + h - 26, w * .16, 26); ctx.fillStyle = '#b8e7ed'; ctx.fillRect(x + 14, y + h * .55, 15, 12); ctx.fillRect(x + w - 29, y + h * .55, 15, 12); ctx.restore(); };
+  house(154, 110, 128, 88, '#b85b52'); house(421, 99, 146, 94, '#4b779c'); house(595, 263, 126, 87, '#9d606f'); house(282, 344, 138, 90, '#7d6aa8');
+  for (const [x, y] of [[78, 170], [92, 252], [348, 92], [727, 117], [750, 432], [484, 454], [197, 466], [555, 216]]) { ctx.fillStyle = '#5c432c'; ctx.fillRect(x - 3, y + 12, 7, 20); ctx.fillStyle = '#2e7959'; ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#55a96b'; ctx.beginPath(); ctx.arc(x - 7, y - 7, 13, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = 'rgba(13, 33, 52, .64)'; ctx.beginPath(); ctx.roundRect(278, 19, 244, 34, 14); ctx.fill(); ctx.fillStyle = '#fff1ba'; ctx.font = 'bold 18px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('대마을 지도 · 개발 중', canvas.width / 2, 42);
+  ctx.fillStyle = '#e6f4ff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.fillText('◀ 별빛 마을로 돌아가기', 101, 528);
 }
 
 function drawShopSign() {
@@ -1419,10 +1526,16 @@ function draw() {
     drawCompanion();
     drawCharacter(player, true);
     drawDice();
+  } else if (inGrandVillage) {
+    drawGrandVillage();
+    drawCompanion();
+    drawCharacter(player, true);
+    drawDice();
   } else {
     drawVillageBackground();
     drawFountain();
     drawPortal();
+    drawEnchantPillar();
     drawShopSign();
     drawCoins();
     drawCharacter(npc);
@@ -1442,6 +1555,9 @@ function update(time) {
   if (keys.has('arrowdown') || keys.has('s')) { dy += player.speed * delta; player.direction = 'down'; }
   if (dx || dy) move(dx, dy);
   if (!inDungeon) {
+    updateAreaTransition();
+  }
+  if (!inDungeon && !inGrandVillage) {
     nearbyNpc();
     nearbyPortal();
     collectCoins();
@@ -1457,10 +1573,10 @@ function update(time) {
 addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
   if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'w', 'a', 's', 'd'].includes(key)) event.preventDefault();
-  if (key === 'r') {
-    player.x = start.x; player.y = start.y; greeted = false;
-    dialogue.textContent = '시작 위치로 돌아왔어요.';
-    objective.textContent = '마을을 둘러보세요';
+  if (key === 'r' && !event.repeat) {
+    event.preventDefault();
+    if (!inDungeon && !inGrandVillage && isNearEnchantPillar()) setEnchantOpen(true);
+    else dialogue.textContent = '마을 오른쪽 아래 빛기둥 가까이에서 R을 눌러 인챈트할 수 있습니다.';
   }
   if (key === 'i') {
     event.preventDefault();
@@ -1472,7 +1588,7 @@ addEventListener('keydown', (event) => {
   }
   if (key === 'q' && !event.repeat) {
     event.preventDefault();
-    if (!inDungeon && isNearShop()) setShopOpen(true);
+    if (!inDungeon && !inGrandVillage && isNearShop()) setShopOpen(true);
     else dialogue.textContent = '상점이 있는 집 가까이에서 Q를 눌러주세요.';
   }
   if (event.code === 'Space' && !event.repeat) {
@@ -1499,7 +1615,7 @@ addEventListener('keydown', (event) => {
     event.preventDefault();
     interact();
   }
-  if (key === 'escape') { setInventoryOpen(false); setSkillOpen(false); setShopOpen(false); }
+  if (key === 'escape') { setInventoryOpen(false); setSkillOpen(false); setShopOpen(false); setEnchantOpen(false); }
   keys.add(key);
 });
 addEventListener('keyup', (event) => keys.delete(event.key.toLowerCase()));
@@ -1549,6 +1665,9 @@ skillButton.addEventListener('click', () => setSkillOpen(skillPanel.hidden));
 skillClose.addEventListener('click', () => setSkillOpen(false));
 skillNodes.forEach((node) => node.addEventListener('click', () => unlockSkill(node.dataset.skill)));
 shopClose.addEventListener('click', () => setShopOpen(false));
+enchantClose.addEventListener('click', () => setEnchantOpen(false));
+enchantWeaponButton.addEventListener('click', () => enchantEquipped('weapon'));
+enchantArmorButton.addEventListener('click', () => enchantEquipped('armor'));
 capacityBuy.addEventListener('click', buyCapacity);
 companionBuy.addEventListener('click', pullCompanion);
 synthesisButtons.forEach((button) => button.addEventListener('click', () => synthesize(button.dataset.synthesize)));

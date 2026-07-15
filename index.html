@@ -148,11 +148,27 @@
           </section>
           <p class="shop-capacity">현재 카테고리 용량: <strong id="shop-capacity">5</strong>칸</p>
         </aside>
+        <aside class="enchant-panel" id="enchant-panel" aria-label="빛기둥 인챈트" hidden>
+          <div class="inventory-title-row">
+            <div>
+              <p class="eyebrow">STARLIGHT ENCHANTMENT</p>
+              <h2>빛기둥 인챈트</h2>
+            </div>
+            <button class="close-button" id="enchant-close" type="button" aria-label="인챈트 닫기">×</button>
+          </div>
+          <p class="enchant-intro">장착한 장비에 별빛을 새겨 더 강하게 만드세요. 빛기둥 가까이에서 <kbd>R</kbd>로 열 수 있습니다.</p>
+          <div class="enchant-status" id="enchant-status"></div>
+          <div class="enchant-actions">
+            <button id="enchant-weapon" type="button">⚔ 무기 인챈트</button>
+            <button id="enchant-armor" type="button">🛡 방어구 인챈트</button>
+          </div>
+          <p class="tier-guide">10단계: <b>마력 · 불꽃 · 서리 · 폭풍 · 태양 · 달빛 · 용혼 · 성좌 · 심연 · 천상</b></p>
+        </aside>
       </section>
 
       <footer>
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동</span>
-        <span><kbd>Space</kbd> 공격 · <kbd>C</kbd> 동료 스킬 · <kbd>Z</kbd> AUTO · <kbd>F</kbd> 주사위 · <kbd>Q</kbd> 집 상점 · <kbd>E</kbd> 상호작용</span>
+        <span><kbd>Space</kbd> 공격 · <kbd>C</kbd> 동료 스킬 · <kbd>Z</kbd> AUTO · <kbd>F</kbd> 주사위 · <kbd>Q</kbd> 집 상점 · <kbd>R</kbd> 빛기둥 인챈트 · <kbd>E</kbd> 상호작용</span>
       </footer>
     </main>
     <div class="device-picker" id="device-picker" role="dialog" aria-modal="true" aria-label="조작 환경 선택">
