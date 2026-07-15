@@ -91,7 +91,8 @@ const portal = { x: 688, y: 146, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
 const shopDoor = { x: 214, y: 180 };
 const fountain = { x: 148, y: 378 };
-const enchantPillar = { x: 605, y: 456 };
+// 3D 배경 오른쪽 아래 황금 제단의 불꽃 중심과 맞춥니다.
+const enchantPillar = { x: 603, y: 398 };
 const worldTree = { x: 716, y: 460 };
 const villageObstacles = [
   // 배경의 집·수풀·절벽을 막아 길 밖으로 걸어 나가지 못하게 합니다.
@@ -1253,11 +1254,12 @@ function drawPortal() {
 function drawEnchantPillar() {
   const { x, y } = enchantPillar; const time = performance.now();
   ctx.save();
-  const beam = ctx.createLinearGradient(x, y - 100, x, y + 14); beam.addColorStop(0, 'rgba(255, 243, 177, 0)'); beam.addColorStop(.45, 'rgba(255, 223, 112, .32)'); beam.addColorStop(1, 'rgba(255, 197, 85, .08)'); ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x - 20, y + 12); ctx.lineTo(x - 5, y - 96); ctx.lineTo(x + 6, y - 96); ctx.lineTo(x + 24, y + 12); ctx.closePath(); ctx.fill();
-  const glow = ctx.createRadialGradient(x, y, 3, x, y, 44); glow.addColorStop(0, 'rgba(255, 247, 178, .75)'); glow.addColorStop(1, 'rgba(255, 178, 65, 0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#ffe99a'; ctx.lineWidth = 2; ctx.globalAlpha = .84; ctx.beginPath(); ctx.ellipse(x, y + 9, 23 + Math.sin(time / 250) * 2, 8, 0, 0, Math.PI * 2); ctx.stroke(); ctx.strokeStyle = '#c88439'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 8, y + 9); ctx.lineTo(x - 2, y - 20); ctx.lineTo(x + 4, y - 20); ctx.lineTo(x + 10, y + 9); ctx.stroke();
-  for (let index = 0; index < 5; index += 1) { const phase = (time / 520 + index * 17) % 46; ctx.fillStyle = '#fff2a8'; ctx.beginPath(); ctx.arc(x + Math.sin(index * 2.8 + time / 500) * 15, y + 5 - phase, 1.8, 0, Math.PI * 2); ctx.fill(); }
-  ctx.globalAlpha = 1; ctx.fillStyle = '#fff2b3'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('인챈트 · R', x, y - 43); ctx.restore();
+  ctx.globalCompositeOperation = 'screen';
+  const beam = ctx.createLinearGradient(x, y - 112, x, y + 12); beam.addColorStop(0, 'rgba(255, 244, 186, 0)'); beam.addColorStop(.52, 'rgba(255, 220, 118, .20)'); beam.addColorStop(1, 'rgba(255, 181, 70, .08)'); ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x - 14, y + 7); ctx.lineTo(x - 4, y - 110); ctx.lineTo(x + 5, y - 110); ctx.lineTo(x + 17, y + 7); ctx.closePath(); ctx.fill();
+  const glow = ctx.createRadialGradient(x, y - 1, 2, x, y, 48); glow.addColorStop(0, 'rgba(255, 251, 210, .58)'); glow.addColorStop(.32, 'rgba(255, 205, 94, .25)'); glow.addColorStop(1, 'rgba(255, 184, 74, 0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 48, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffe3a0'; ctx.globalAlpha = .54; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x, y + 7, 22 + Math.sin(time / 250) * 1.5, 7, 0, time / 900, time / 900 + Math.PI * 1.55); ctx.stroke();
+  for (let index = 0; index < 7; index += 1) { const phase = (time / 520 + index * 13) % 54; const sway = Math.sin(time / 430 + index * 2.1) * 10; ctx.fillStyle = index % 2 ? '#fff4bd' : '#ffd38a'; ctx.globalAlpha = .55 + (index % 3) * .12; ctx.beginPath(); ctx.arc(x + sway, y + 2 - phase, 1.1 + (index % 2) * .65, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#fff0bb'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('인챈트 · R', x, y - 59); ctx.restore();
 }
 
 function drawWorldTree() {
