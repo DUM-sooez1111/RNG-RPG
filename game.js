@@ -154,6 +154,40 @@ const dungeonMonsters = [
     { name: '암흑 기사', x: 21 * TILE, y: 11 * TILE, homeX: 21 * TILE, homeY: 11 * TILE, hp: 82, maxHp: 82, baseHp: 82, reward: 220, baseReward: 220, experience: 90, baseExperience: 90, damage: 21, baseDamage: 21, level: 1, defeated: false, respawnAt: 0, lastHit: 0, color: '#6d638e', kind: 'knight' },
   ];
 
+// 재생성될 때 사용할 몬스터 원본 정보입니다. 전투 중 변경되는 수치와 분리해 둡니다.
+const monsterTemplates = dungeonMonsters.map(({ name, baseHp, baseReward, baseExperience, baseDamage, color, kind }) => ({
+  name, baseHp, baseReward, baseExperience, baseDamage, color, kind,
+}));
+
+function rerollMonster(monster) {
+  // 방금 처치한 몬스터와는 반드시 다른 종류를 고릅니다.
+  const candidates = monsterTemplates.filter((template) => template.name !== monster.name);
+  const template = candidates[Math.floor(Math.random() * candidates.length)];
+  const levelIncrease = 1 + Math.floor(Math.random() * 3);
+
+  Object.assign(monster, {
+    name: template.name,
+    baseHp: template.baseHp,
+    baseReward: template.baseReward,
+    baseExperience: template.baseExperience,
+    baseDamage: template.baseDamage,
+    color: template.color,
+    kind: template.kind,
+    level: monster.level + levelIncrease,
+    defeated: false,
+    lastHit: 0,
+  });
+
+  monster.maxHp = Math.ceil(monster.baseHp * (1 + (monster.level - 1) * .22));
+  monster.hp = monster.maxHp;
+  monster.damage = monster.baseDamage + (monster.level - 1) * 2;
+  monster.reward = monster.baseReward + (monster.level - 1) * 35;
+  monster.experience = monster.baseExperience + (monster.level - 1) * 12;
+  monster.x = monster.homeX;
+  monster.y = monster.homeY;
+  return levelIncrease;
+}
+
 function rollTier() {
   const legendaryChance = Math.min(.04 * rebirth.luckMultiplier, .22);
   const epicChance = Math.min(.13 * rebirth.luckMultiplier, .36);
@@ -1042,16 +1076,8 @@ function performAttack() {
 function updateCombat(time, delta) {
   if (!inDungeon) return;
   dungeonMonsters.filter((monster) => monster.defeated && time >= monster.respawnAt).forEach((monster) => {
-    monster.defeated = false;
-    monster.level += 1;
-    monster.maxHp = Math.ceil(monster.baseHp * (1 + (monster.level - 1) * .22));
-    monster.hp = monster.maxHp;
-    monster.damage = monster.baseDamage + (monster.level - 1) * 2;
-    monster.reward = monster.baseReward + (monster.level - 1) * 35;
-    monster.experience = monster.baseExperience + (monster.level - 1) * 12;
-    monster.x = monster.homeX;
-    monster.y = monster.homeY;
-    dialogue.textContent = `${monster.name}이(가) Lv.${monster.level}로 강해져 다시 나타났습니다!`;
+    const levelIncrease = rerollMonster(monster);
+    dialogue.textContent = `새 몬스터 ${monster.name}이(가) Lv.${monster.level} (+${levelIncrease})로 나타났습니다!`;
   });
   dungeonMonsters.filter((monster) => !monster.defeated).forEach((monster) => {
     const dx = player.x - monster.x; const dy = player.y - monster.y; const distance = Math.hypot(dx, dy) || 1;
