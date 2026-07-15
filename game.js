@@ -13,6 +13,10 @@ const dungeonBackground = new Image();
 let dungeonBackgroundReady = false;
 dungeonBackground.addEventListener('load', () => { dungeonBackgroundReady = true; });
 dungeonBackground.src = 'assets/starlight-dungeon-depths.png';
+const adventurerSprite = new Image();
+let adventurerSpriteReady = false;
+adventurerSprite.addEventListener('load', () => { adventurerSpriteReady = true; });
+adventurerSprite.src = 'assets/adventurer-sprite.png';
 const dialogue = document.querySelector('#dialogue');
 const objective = document.querySelector('#objective');
 const coinBalance = document.querySelector('#coin-balance');
@@ -1208,9 +1212,34 @@ function drawGearAura(x, y) {
   ctx.restore();
 }
 
+function drawPlayerSprite(character) {
+  const { x, y, direction } = character;
+  const frameByDirection = {
+    down: [120, 180, 320, 600], left: [560, 180, 310, 600],
+    up: [960, 180, 320, 600], right: [1390, 180, 330, 600],
+  };
+  const [sx, sy, sw, sh] = frameByDirection[direction] ?? frameByDirection.down;
+  ctx.save();
+  ctx.fillStyle = 'rgba(5, 13, 24, .42)'; ctx.beginPath(); ctx.ellipse(x + 11, y + 29, 16, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  if (adventurerSpriteReady) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(adventurerSprite, sx, sy, sw, sh, x - 8, y - 31, 38, 62);
+  } else {
+    const skin = ctx.createRadialGradient(x + 8, y + 6, 1, x + 11, y + 10, 9); skin.addColorStop(0, '#fff0cb'); skin.addColorStop(1, '#be785f'); ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(x + 11, y + 10, 8, 0, Math.PI * 2); ctx.fill();
+  }
+  if (cosmetics.charm === 'flower') { ctx.fillStyle = '#ff9dcb'; ctx.beginPath(); ctx.arc(x + 23, y - 18, 3.2, 0, Math.PI * 2); ctx.fill(); }
+  else { ctx.fillStyle = '#ffe686'; ctx.beginPath(); ctx.moveTo(x + 23, y - 22); ctx.lineTo(x + 24.5, y - 18.5); ctx.lineTo(x + 28, y - 18); ctx.lineTo(x + 25, y - 16); ctx.lineTo(x + 24, y - 12.5); ctx.lineTo(x + 22, y - 16); ctx.lineTo(x + 19, y - 18); ctx.lineTo(x + 22.5, y - 18.5); ctx.closePath(); ctx.fill(); }
+  if (inventory.equipped.weapon) {
+    const weaponTier = tiers[inventory.equipped.weapon.tier];
+    ctx.strokeStyle = 'rgba(0, 0, 0, .3)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x + 22, y + 16); ctx.lineTo(x + 31, y + 1); ctx.stroke();
+    const blade = ctx.createLinearGradient(x + 22, y + 16, x + 31, y + 1); blade.addColorStop(0, weaponTier.color); blade.addColorStop(.45, '#ffffff'); blade.addColorStop(1, weaponTier.color); ctx.strokeStyle = blade; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 22, y + 16); ctx.lineTo(x + 31, y + 1); ctx.stroke(); ctx.strokeStyle = '#f2c76b'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + 20, y + 14); ctx.lineTo(x + 26, y + 18); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawCharacter(character, isPlayer = false) {
   const { x, y } = character;
-  if (isPlayer) drawGearAura(x, y);
+  if (isPlayer) { drawGearAura(x, y); drawPlayerSprite(character); return; }
   const centerX = x + 11;
   const armorColor = inventory.equipped.armor ? tiers[inventory.equipped.armor.tier].color : '#4a74bd';
   const robe = isPlayer ? armorColor : '#9e5fb5';
