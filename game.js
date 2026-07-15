@@ -106,7 +106,6 @@ let rolling = false;
 let rollFrame = 0;
 let coins = 0;
 let inDungeon = false;
-let cameraRotated = false;
 let autoBattle = false;
 let autoDice = false;
 let nextAutoDiceAt = 0;
@@ -1413,11 +1412,6 @@ function drawCoins() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-  if (cameraRotated) {
-    ctx.translate(canvas.width, canvas.height);
-    ctx.rotate(Math.PI);
-  }
   if (inDungeon) {
     drawDungeon();
     dungeonMonsters.filter((monster) => !monster.defeated).forEach(drawMonster);
@@ -1436,11 +1430,6 @@ function draw() {
     drawCharacter(player, true);
     drawDice();
   }
-  ctx.restore();
-  ctx.save();
-  ctx.fillStyle = 'rgba(9, 18, 33, .72)'; ctx.beginPath(); ctx.roundRect(14, 14, 154, 25, 8); ctx.fill();
-  ctx.strokeStyle = cameraRotated ? '#ffe585' : '#a9d7ff'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#f4f7ff'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText(`📷 ${cameraRotated ? '후면 180°' : '기본 시점'} · 우클릭`, 91, 31); ctx.restore();
 }
 
 function update(time) {
@@ -1515,28 +1504,12 @@ addEventListener('keydown', (event) => {
 });
 addEventListener('keyup', (event) => keys.delete(event.key.toLowerCase()));
 
-function toggleCameraRotation() {
-  cameraRotated = !cameraRotated;
-  dialogue.textContent = cameraRotated ? '📷 카메라가 180° 회전했습니다. 다시 우클릭하면 원래 시점으로 돌아갑니다.' : '📷 카메라가 기본 시점으로 돌아왔습니다.';
-}
-
-function canvasWorldPosition(event) {
-  const bounds = canvas.getBoundingClientRect();
-  let x = (event.clientX - bounds.left) * (canvas.width / bounds.width);
-  let y = (event.clientY - bounds.top) * (canvas.height / bounds.height);
-  if (cameraRotated) { x = canvas.width - x; y = canvas.height - y; }
-  return { x, y };
-}
-
 canvas.addEventListener('click', (event) => {
-  const { x, y } = canvasWorldPosition(event);
+  const bounds = canvas.getBoundingClientRect();
+  const x = (event.clientX - bounds.left) * (canvas.width / bounds.width);
+  const y = (event.clientY - bounds.top) * (canvas.height / bounds.height);
   const dice = diceBounds();
   if (x >= dice.x - 4 && x <= dice.x + dice.size + 4 && y >= dice.y - 4 && y <= dice.y + dice.size + 4) rollDice();
-});
-
-canvas.addEventListener('contextmenu', (event) => {
-  event.preventDefault();
-  toggleCameraRotation();
 });
 
 function setDeviceMode(mode) {
