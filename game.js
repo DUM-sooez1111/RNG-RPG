@@ -9,6 +9,7 @@ const defenseValue = document.querySelector('#defense-value');
 const levelValue = document.querySelector('#level-value');
 const experienceValue = document.querySelector('#experience-value');
 const saveButton = document.querySelector('#save-button');
+const autoButton = document.querySelector('#auto-button');
 const rebirthButton = document.querySelector('#rebirth-button');
 const rebirthInfo = document.querySelector('#rebirth-info');
 const devicePicker = document.querySelector('#device-picker');
@@ -92,6 +93,7 @@ let rolling = false;
 let rollFrame = 0;
 let coins = 0;
 let inDungeon = false;
+let autoBattle = false;
 let shopPrice = 500;
 let attackCooldown = 0;
 let meleeEffect = null;
@@ -335,6 +337,8 @@ function enterDungeon() {
 
 function exitDungeon() {
   inDungeon = false;
+  autoBattle = false;
+  updateAutoButton();
   player.x = portal.x - 58;
   player.y = portal.y + 10;
   dialogue.textContent = '별빛 마을로 돌아왔습니다.';
@@ -1073,6 +1077,38 @@ function performAttack() {
   }
 }
 
+function updateAutoButton() {
+  autoButton.classList.toggle('active', autoBattle);
+  autoButton.setAttribute('aria-pressed', String(autoBattle));
+  autoButton.textContent = autoBattle ? '🤖 AUTO 켜짐' : '🤖 AUTO';
+}
+
+function toggleAutoBattle() {
+  if (!inDungeon) {
+    dialogue.textContent = 'AUTO는 던전에 들어간 뒤 사용할 수 있습니다.';
+    return;
+  }
+  autoBattle = !autoBattle;
+  updateAutoButton();
+  dialogue.textContent = autoBattle ? 'AUTO 사냥을 시작합니다!' : 'AUTO 사냥을 멈췄습니다.';
+}
+
+function updateAutoBattle(time, delta) {
+  if (!autoBattle || !inDungeon || playerStats.health <= 0) return;
+  const target = dungeonMonsters
+    .filter((monster) => !monster.defeated)
+    .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y))[0];
+  if (!target) return;
+
+  const dx = target.x + 16 - (player.x + player.size / 2);
+  const dy = target.y + 16 - (player.y + player.size / 2);
+  const distance = Math.hypot(dx, dy) || 1;
+  if (Math.abs(dx) > Math.abs(dy)) player.direction = dx < 0 ? 'left' : 'right';
+  else player.direction = dy < 0 ? 'up' : 'down';
+  if (distance > 49) move(dx / distance * player.speed * .62 * delta, dy / distance * player.speed * .62 * delta);
+  else performAttack();
+}
+
 function updateCombat(time, delta) {
   if (!inDungeon) return;
   dungeonMonsters.filter((monster) => monster.defeated && time >= monster.respawnAt).forEach((monster) => {
@@ -1196,6 +1232,7 @@ function update(time) {
     collectCoins();
     healAtFountain(time);
   }
+  updateAutoBattle(time, delta);
   updateCombat(time, delta);
   draw();
   requestAnimationFrame(update);
@@ -1233,6 +1270,10 @@ addEventListener('keydown', (event) => {
   if (key === 'c' && !event.repeat) {
     event.preventDefault();
     useCompanionSkill();
+  }
+  if (key === 'z' && !event.repeat) {
+    event.preventDefault();
+    toggleAutoBattle();
   }
   if (key === 'e' && !event.repeat) {
     event.preventDefault();
@@ -1274,10 +1315,12 @@ mobileActionButtons.forEach((button) => button.addEventListener('click', () => {
   if (action === 'interact') interact();
   if (action === 'dice') rollDice();
   if (action === 'companion') useCompanionSkill();
+  if (action === 'auto') toggleAutoBattle();
   if (action === 'inventory') setInventoryOpen(inventoryPanel.hidden);
 }));
 
 inventoryButton.addEventListener('click', () => setInventoryOpen(inventoryPanel.hidden));
+autoButton.addEventListener('click', toggleAutoBattle);
 inventoryClose.addEventListener('click', () => setInventoryOpen(false));
 skillButton.addEventListener('click', () => setSkillOpen(skillPanel.hidden));
 skillClose.addEventListener('click', () => setSkillOpen(false));
