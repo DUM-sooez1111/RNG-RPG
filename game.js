@@ -102,16 +102,16 @@ const npc = { x: 370, y: 196, size: 22, name: '루나' };
 const portal = { x: 708, y: 338, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
 const nextDungeonPortal = { x: 378, y: 66, size: 44 };
-const shopDoor = { x: 402, y: 458 };
+const shopDoor = { x: 402, y: 510 };
 const fountain = { x: 400, y: 252 };
 const enchantPillar = { x: 600, y: 447 };
 const worldTree = { x: 706, y: 505 };
 const sanctuaryTree = { x: 400, y: 246 };
 const sanctuaryExit = { x: 400, y: 520 };
 const villageObstacles = [
-  // 픽셀 마을의 집·분수·나무 지형 충돌 영역입니다.
-  { x: 78, y: 30, width: 120, height: 104 }, { x: 335, y: 27, width: 122, height: 100 }, { x: 573, y: 30, width: 130, height: 108 },
-  { x: 215, y: 278, width: 125, height: 105 }, { x: 495, y: 280, width: 125, height: 104 }, { x: 340, y: 432, width: 126, height: 101 },
+  // 픽셀 마을의 집 전체(지붕·벽·문 포함), 분수·나무 지형 충돌 영역입니다.
+  { x: 132, y: 18, width: 168, height: 150 }, { x: 330, y: 20, width: 156, height: 150 }, { x: 538, y: 14, width: 172, height: 166 },
+  { x: 210, y: 228, width: 162, height: 160 }, { x: 470, y: 230, width: 158, height: 160 }, { x: 330, y: 392, width: 162, height: 138 },
   { kind: 'circle', x: 400, y: 252, radius: 37 }, { kind: 'circle', x: 705, y: 505, radius: 44 },
   { kind: 'circle', x: 70, y: 470, radius: 34 }, { kind: 'circle', x: 744, y: 110, radius: 36 },
 ];
