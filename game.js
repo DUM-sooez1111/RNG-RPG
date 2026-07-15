@@ -94,6 +94,8 @@ const fountain = { x: 148, y: 378 };
 // 3D 배경 오른쪽 아래 황금 제단의 불꽃 중심과 맞춥니다.
 const enchantPillar = { x: 603, y: 398 };
 const worldTree = { x: 716, y: 460 };
+const sanctuaryTree = { x: 400, y: 246 };
+const sanctuaryExit = { x: 400, y: 520 };
 const villageObstacles = [
   // 배경의 집·수풀·절벽을 막아 길 밖으로 걸어 나가지 못하게 합니다.
   { x: 70, y: 68, width: 230, height: 92 },
@@ -114,6 +116,7 @@ const grandVillageObstacles = [
   { x: 150, y: 104, width: 136, height: 98 }, { x: 418, y: 93, width: 154, height: 105 },
   { x: 590, y: 258, width: 136, height: 98 }, { x: 278, y: 338, width: 145, height: 100 },
 ];
+const sanctuaryObstacles = [{ kind: 'circle', x: sanctuaryTree.x, y: sanctuaryTree.y + 22, radius: 65 }];
 const coinDrops = [
   { x: 8 * TILE + 10, y: 3 * TILE + 11, value: 5, taken: false },
   { x: 8 * TILE + 9, y: 11 * TILE + 10, value: 10, taken: false },
@@ -130,6 +133,7 @@ let rollFrame = 0;
 let coins = 0;
 let inDungeon = false;
 let inGrandVillage = false;
+let inWorldTreeSanctuary = false;
 let autoBattle = false;
 let autoDice = false;
 let nextAutoDiceAt = 0;
@@ -290,6 +294,8 @@ function tileAt(x, y) {
 
 function isBlocked(x, y) {
   if (inDungeon) return x < TILE || y < TILE || x + player.size > canvas.width - TILE || y + player.size > canvas.height - TILE;
+  if (inWorldTreeSanctuary) return x < 10 || y < 10 || x + player.size > canvas.width - 10 || y + player.size > canvas.height - 10
+    || sanctuaryObstacles.some((obstacle) => Math.hypot(x + player.size / 2 - obstacle.x, y + player.size / 2 - obstacle.y) < obstacle.radius + player.size * .42);
   if (inGrandVillage) return x < 10 || y < 10 || x + player.size > canvas.width - 10 || y + player.size > canvas.height - 10
     || grandVillageObstacles.some((obstacle) => x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height);
   if (villageBackgroundReady) {
@@ -416,8 +422,16 @@ function isNearWorldTree() {
   return Math.hypot(player.x - worldTree.x, player.y - worldTree.y) < 82;
 }
 
+function isNearSanctuaryTree() {
+  return Math.hypot(player.x - sanctuaryTree.x, player.y - sanctuaryTree.y) < 112;
+}
+
+function isNearSanctuaryExit() {
+  return Math.hypot(player.x - sanctuaryExit.x, player.y - sanctuaryExit.y) < 72;
+}
+
 function updateAreaTransition() {
-  if (inDungeon) return;
+  if (inDungeon || inWorldTreeSanctuary) return;
   // 마을 왼쪽 아래 계단이 대마을로 이어지는 길입니다.
   if (!inGrandVillage && player.x < 98 && player.y > 322 && player.y < 382) {
     inGrandVillage = true;
@@ -432,8 +446,24 @@ function updateAreaTransition() {
   }
 }
 
+function enterWorldTreeSanctuary() {
+  inWorldTreeSanctuary = true;
+  inGrandVillage = false;
+  player.x = 389; player.y = 456;
+  dialogue.textContent = '세계수 성역에 들어섰습니다. 중앙의 세계수와 E로 상호작용하면 환생할 수 있습니다.';
+  objective.textContent = '세계수 성역 탐험';
+}
+
+function exitWorldTreeSanctuary() {
+  inWorldTreeSanctuary = false;
+  player.x = worldTree.x - 88; player.y = worldTree.y + 3;
+  dialogue.textContent = '세계수 성역에서 나왔습니다.';
+  objective.textContent = '마을을 둘러보세요';
+}
+
 function enterDungeon() {
   inGrandVillage = false;
+  inWorldTreeSanctuary = false;
   inDungeon = true;
   dungeonMonsters.forEach((monster) => { monster.lastHit = 0; });
   player.x = 5 * TILE;
@@ -445,6 +475,7 @@ function enterDungeon() {
 function exitDungeon() {
   inDungeon = false;
   inGrandVillage = false;
+  inWorldTreeSanctuary = false;
   autoBattle = false;
   updateAutoButton();
   player.x = portal.x - 58;
@@ -454,8 +485,11 @@ function exitDungeon() {
 }
 
 function interact() {
-  if (inGrandVillage) dialogue.textContent = '대마을은 현재 탐험 지도입니다. 왼쪽 아래 관문으로 돌아가세요.';
-  else if (!inDungeon && isNearWorldTree()) performRebirth();
+  if (inWorldTreeSanctuary && isNearSanctuaryTree()) performRebirth();
+  else if (inWorldTreeSanctuary && isNearSanctuaryExit()) exitWorldTreeSanctuary();
+  else if (inWorldTreeSanctuary) dialogue.textContent = '중앙의 세계수 또는 아래 성역 입구 가까이에서 E를 눌러주세요.';
+  else if (inGrandVillage) dialogue.textContent = '대마을은 현재 탐험 지도입니다. 왼쪽 아래 관문으로 돌아가세요.';
+  else if (!inDungeon && isNearWorldTree()) enterWorldTreeSanctuary();
   else if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
   else if (!inDungeon && isNearPortal(portal)) enterDungeon();
   else if (inDungeon && isNearPortal(dungeonExit)) exitDungeon();
@@ -544,7 +578,7 @@ function saveGame(showMessage = false) {
   try {
     const snapshot = {
       player: { x: player.x, y: player.y, direction: player.direction },
-          coins, inDungeon, inGrandVillage, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
+          coins, inDungeon, inGrandVillage, inWorldTreeSanctuary, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
       playerStats: { health: playerStats.health },
       playerLevel: { ...playerLevel },
       quest: { ...quest },
@@ -569,6 +603,7 @@ function loadGame() {
     if (typeof save.coins === 'number') coins = save.coins;
     if (typeof save.inDungeon === 'boolean') inDungeon = save.inDungeon;
     if (typeof save.inGrandVillage === 'boolean') inGrandVillage = save.inGrandVillage;
+    if (typeof save.inWorldTreeSanctuary === 'boolean') inWorldTreeSanctuary = save.inWorldTreeSanctuary;
     if (typeof save.shopPrice === 'number') shopPrice = save.shopPrice;
       if (save.rebirth) Object.assign(rebirth, save.rebirth);
       if (save.cosmetics) Object.assign(cosmetics, save.cosmetics);
@@ -1281,7 +1316,23 @@ function drawWorldTree() {
   const leaf = (dx, dy, radius, color) => { const g = ctx.createRadialGradient(x + dx - radius * .3, y + dy - radius * .4, 2, x + dx, y + dy, radius); g.addColorStop(0, '#e6ffe3'); g.addColorStop(.35, color); g.addColorStop(1, '#2a6d68'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + dx, y + dy, radius, 0, Math.PI * 2); ctx.fill(); };
   leaf(-29, -65, 27, '#83d7a8'); leaf(2, -82, 32, '#76d5b8'); leaf(31, -62, 28, '#70bfe1'); leaf(-4, -43, 35, '#6dc89b'); leaf(24, -35, 24, '#8de4bb');
   for (let index = 0; index < 11; index += 1) { const angle = time / 1000 + index * Math.PI * 2 / 11; const radius = 42 + (index % 3) * 9; const px = x + Math.cos(angle) * radius; const py = y - 42 + Math.sin(angle) * radius * .68; ctx.fillStyle = index % 2 ? '#ceffe6' : '#9ae8ff'; ctx.beginPath(); ctx.arc(px, py, 1.4 + (index % 2), 0, Math.PI * 2); ctx.fill(); }
-  ctx.globalAlpha = 1; ctx.strokeStyle = '#c6ffdc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + 15, 42 + Math.sin(time / 230) * 2, 12, 0, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#e7fff0'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('세계수 · E', x, y - 119); ctx.restore();
+  ctx.globalAlpha = 1; ctx.strokeStyle = '#c6ffdc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + 15, 42 + Math.sin(time / 230) * 2, 12, 0, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#e7fff0'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('세계수 성역 · E', x, y - 119); ctx.restore();
+}
+
+function drawWorldTreeSanctuary() {
+  const time = performance.now(); const { x, y } = sanctuaryTree;
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height); sky.addColorStop(0, '#102f42'); sky.addColorStop(.55, '#225c61'); sky.addColorStop(1, '#163e47'); ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const clearing = ctx.createRadialGradient(x, y + 110, 45, x, y + 110, 460); clearing.addColorStop(0, '#79a968'); clearing.addColorStop(.55, '#416d5a'); clearing.addColorStop(1, '#1c4450'); ctx.fillStyle = clearing; ctx.fillRect(0, 70, canvas.width, canvas.height - 70);
+  ctx.fillStyle = 'rgba(132, 232, 211, .11)'; for (let index = 0; index < 70; index += 1) { const px = (index * 97) % canvas.width; const py = 95 + (index * 53) % 430; ctx.beginPath(); ctx.arc(px, py, 1.2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#c9b277'; ctx.lineWidth = 62; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(400, 548); ctx.bezierCurveTo(397, 442, 416, 382, 400, 308); ctx.stroke(); ctx.strokeStyle = '#e7d39a'; ctx.lineWidth = 43; ctx.stroke();
+  ctx.fillStyle = '#254b4b'; ctx.beginPath(); ctx.ellipse(x, y + 107, 172, 44, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#87dac5'; ctx.lineWidth = 2; ctx.globalAlpha = .7; ctx.beginPath(); ctx.ellipse(x, y + 105, 159 + Math.sin(time / 300) * 3, 39, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  const aura = ctx.createRadialGradient(x, y - 24, 9, x, y - 6, 170); aura.addColorStop(0, 'rgba(229, 255, 194, .72)'); aura.addColorStop(.35, 'rgba(111, 239, 183, .36)'); aura.addColorStop(1, 'rgba(91, 194, 210, 0)'); ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(x, y - 4, 175, 0, Math.PI * 2); ctx.fill();
+  const trunk = ctx.createLinearGradient(x - 42, y - 140, x + 48, y + 110); trunk.addColorStop(0, '#e6f3cc'); trunk.addColorStop(.28, '#719b78'); trunk.addColorStop(.72, '#315c58'); trunk.addColorStop(1, '#193d45'); ctx.fillStyle = trunk; ctx.beginPath(); ctx.moveTo(x - 44, y + 112); ctx.bezierCurveTo(x - 62, y + 42, x - 38, y - 25, x - 26, y - 143); ctx.lineTo(x + 29, y - 143); ctx.bezierCurveTo(x + 42, y - 19, x + 66, y + 35, x + 51, y + 112); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#c8ffd1'; ctx.lineWidth = 3; ctx.globalAlpha = .68; [-18, 1, 21].forEach((offset) => { ctx.beginPath(); ctx.moveTo(x + offset, y + 96); ctx.bezierCurveTo(x + offset - 18, y + 28, x + offset + 14, y - 52, x + offset - 4, y - 132); ctx.stroke(); });
+  const canopy = (dx, dy, radius, color) => { const g = ctx.createRadialGradient(x + dx - radius * .35, y + dy - radius * .35, 3, x + dx, y + dy, radius); g.addColorStop(0, '#edffe0'); g.addColorStop(.28, color); g.addColorStop(1, '#245b5a'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + dx, y + dy, radius, 0, Math.PI * 2); ctx.fill(); };
+  canopy(-88, -100, 70, '#8cdeb0'); canopy(-28, -143, 83, '#78d1a3'); canopy(49, -139, 89, '#74c9be'); canopy(101, -83, 68, '#66b99a'); canopy(-80, -48, 73, '#67bd91'); canopy(3, -59, 91, '#7de0af');
+  for (let index = 0; index < 20; index += 1) { const angle = time / 1350 + index * Math.PI * 2 / 20; const radius = 108 + (index % 4) * 15; const px = x + Math.cos(angle) * radius; const py = y - 76 + Math.sin(angle) * radius * .72; ctx.fillStyle = index % 2 ? '#ddffe9' : '#9beaff'; ctx.beginPath(); ctx.arc(px, py, 1.4 + (index % 3) * .45, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(9, 33, 48, .7)'; ctx.beginPath(); ctx.roundRect(282, 20, 236, 35, 15); ctx.fill(); ctx.fillStyle = '#e8ffdc'; ctx.font = 'bold 19px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('세계수 성역', 400, 44); ctx.fillStyle = '#ffffcf'; ctx.font = 'bold 12px Malgun Gothic'; ctx.fillText('환생의 세계수 · E', x, y - 228); ctx.fillStyle = '#dcfff1'; ctx.font = 'bold 11px Malgun Gothic'; ctx.fillText('성역 입구 · E', sanctuaryExit.x, sanctuaryExit.y + 26);
 }
 
 function drawGrandVillage() {
@@ -1576,6 +1627,11 @@ function draw() {
     drawCompanion();
     drawCharacter(player, true);
     drawDice();
+  } else if (inWorldTreeSanctuary) {
+    drawWorldTreeSanctuary();
+    drawCompanion();
+    drawCharacter(player, true);
+    drawDice();
   } else {
     drawVillageBackground();
     drawFountain();
@@ -1604,7 +1660,7 @@ function update(time) {
   if (!inDungeon) {
     updateAreaTransition();
   }
-  if (!inDungeon && !inGrandVillage) {
+  if (!inDungeon && !inGrandVillage && !inWorldTreeSanctuary) {
     nearbyNpc();
     nearbyPortal();
     collectCoins();
@@ -1622,7 +1678,7 @@ addEventListener('keydown', (event) => {
   if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'w', 'a', 's', 'd'].includes(key)) event.preventDefault();
   if (key === 'r' && !event.repeat) {
     event.preventDefault();
-    if (!inDungeon && !inGrandVillage && isNearEnchantPillar()) setEnchantOpen(true);
+    if (!inDungeon && !inGrandVillage && !inWorldTreeSanctuary && isNearEnchantPillar()) setEnchantOpen(true);
     else dialogue.textContent = '마을 오른쪽 아래 빛기둥 가까이에서 R을 눌러 인챈트할 수 있습니다.';
   }
   if (key === 'i') {
@@ -1635,7 +1691,7 @@ addEventListener('keydown', (event) => {
   }
   if (key === 'q' && !event.repeat) {
     event.preventDefault();
-    if (!inDungeon && !inGrandVillage && isNearShop()) setShopOpen(true);
+    if (!inDungeon && !inGrandVillage && !inWorldTreeSanctuary && isNearShop()) setShopOpen(true);
     else dialogue.textContent = '상점이 있는 집 가까이에서 Q를 눌러주세요.';
   }
   if (event.code === 'Space' && !event.repeat) {
