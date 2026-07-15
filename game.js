@@ -418,15 +418,16 @@ function isNearWorldTree() {
 
 function updateAreaTransition() {
   if (inDungeon) return;
-  if (!inGrandVillage && player.x > 708 && player.y < 108) {
+  // 마을 왼쪽 아래 계단이 대마을로 이어지는 길입니다.
+  if (!inGrandVillage && player.x < 98 && player.y > 322 && player.y < 382) {
     inGrandVillage = true;
     player.x = 112; player.y = 455;
     dialogue.textContent = '거대한 대마을 지도로 들어왔습니다. 왼쪽 아래 관문으로 돌아갈 수 있어요.';
     objective.textContent = '대마을 둘러보기';
   } else if (inGrandVillage && player.x < 92 && player.y > 438) {
     inGrandVillage = false;
-    player.x = 700; player.y = 96;
-    dialogue.textContent = '별빛 마을로 돌아왔습니다.';
+    player.x = 112; player.y = 344;
+    dialogue.textContent = '왼쪽 계단을 통해 별빛 마을로 돌아왔습니다.';
     objective.textContent = '마을을 둘러보세요';
   }
 }
@@ -1239,6 +1240,14 @@ function drawFountain() {
   ctx.fillStyle = '#d8ffff'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('회복 분수', fountain.x, fountain.y - 43); ctx.restore();
 }
 
+function drawGrandVillageStairs() {
+  const x = 63; const y = 329;
+  ctx.save();
+  ctx.globalAlpha = .62 + Math.sin(performance.now() / 420) * .12;
+  ctx.strokeStyle = '#b8eaff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 20, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(14, 32, 48, .68)'; ctx.beginPath(); ctx.roundRect(x - 32, y - 31, 64, 17, 7); ctx.fill(); ctx.fillStyle = '#d7f5ff'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('대마을 계단', x, y - 19); ctx.restore();
+}
+
 function drawPortal() {
   const { x, y, size } = portal;
   const time = performance.now(); const pulse = 1 + Math.sin(time / 260) * .8;
@@ -1570,6 +1579,7 @@ function draw() {
   } else {
     drawVillageBackground();
     drawFountain();
+    drawGrandVillageStairs();
     drawPortal();
     drawEnchantPillar();
     drawWorldTree();
