@@ -99,6 +99,15 @@ const villageObstacles = [
   { x: 18, y: 185, width: 75, height: 135 },
   { x: 760, y: 335, width: 25, height: 180 },
   { x: 290, y: 510, width: 250, height: 48 },
+  // 실제 3D 배경의 나무·바위·분수 가장자리 충돌 영역입니다.
+  { kind: 'circle', x: 65, y: 77, radius: 48 },
+  { kind: 'circle', x: 281, y: 128, radius: 27 },
+  { kind: 'circle', x: 520, y: 145, radius: 36 },
+  { kind: 'circle', x: 564, y: 190, radius: 30 },
+  { kind: 'circle', x: 148, y: 378, radius: 35 },
+  { kind: 'circle', x: 89, y: 505, radius: 55 },
+  { kind: 'circle', x: 647, y: 493, radius: 39 },
+  { kind: 'circle', x: 716, y: 460, radius: 43 },
 ];
 const grandVillageObstacles = [
   { x: 150, y: 104, width: 136, height: 98 }, { x: 418, y: 93, width: 154, height: 105 },
@@ -284,7 +293,14 @@ function isBlocked(x, y) {
     || grandVillageObstacles.some((obstacle) => x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height);
   if (villageBackgroundReady) {
     return x < 10 || y < 10 || x + player.size > canvas.width - 10 || y + player.size > canvas.height - 10
-      || villageObstacles.some((obstacle) => x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height);
+      || villageObstacles.some((obstacle) => {
+        if (obstacle.kind === 'circle') {
+          const dx = x + player.size / 2 - obstacle.x;
+          const dy = y + player.size / 2 - obstacle.y;
+          return Math.hypot(dx, dy) < obstacle.radius + player.size * .42;
+        }
+        return x + player.size > obstacle.x && x < obstacle.x + obstacle.width && y + player.size > obstacle.y && y < obstacle.y + obstacle.height;
+      });
   }
   const inset = 4;
   return [[x + inset, y + inset], [x + player.size - inset, y + inset], [x + inset, y + player.size - inset], [x + player.size - inset, y + player.size - inset]]
