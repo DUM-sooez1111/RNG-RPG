@@ -109,9 +109,9 @@ const worldTree = { x: 706, y: 505 };
 const sanctuaryTree = { x: 400, y: 246 };
 const sanctuaryExit = { x: 400, y: 520 };
 const villageObstacles = [
-  // 픽셀 마을의 집 전체(지붕·벽·문 포함), 분수·나무 지형 충돌 영역입니다.
-  { x: 132, y: 18, width: 168, height: 150 }, { x: 330, y: 20, width: 156, height: 150 }, { x: 538, y: 14, width: 172, height: 166 },
-  { x: 210, y: 228, width: 162, height: 160 }, { x: 470, y: 230, width: 158, height: 160 }, { x: 330, y: 392, width: 162, height: 138 },
+  // 집의 실제 벽·지붕 부분만 막고, 현관 앞과 주변 길은 비워 둡니다.
+  { x: 150, y: 28, width: 132, height: 130 }, { x: 342, y: 28, width: 126, height: 132 }, { x: 556, y: 22, width: 138, height: 146 },
+  { x: 230, y: 244, width: 124, height: 124 }, { x: 490, y: 244, width: 116, height: 128 }, { x: 350, y: 405, width: 134, height: 116 },
   { kind: 'circle', x: 400, y: 252, radius: 37 }, { kind: 'circle', x: 705, y: 505, radius: 44 },
   { kind: 'circle', x: 70, y: 470, radius: 34 }, { kind: 'circle', x: 744, y: 110, radius: 36 },
 ];
