@@ -9,6 +9,10 @@ const grandVillageBackground = new Image();
 let grandVillageBackgroundReady = false;
 grandVillageBackground.addEventListener('load', () => { grandVillageBackgroundReady = true; });
 grandVillageBackground.src = 'assets/grand-village-map.png';
+const dungeonBackground = new Image();
+let dungeonBackgroundReady = false;
+dungeonBackground.addEventListener('load', () => { dungeonBackgroundReady = true; });
+dungeonBackground.src = 'assets/starlight-dungeon-depths.png';
 const dialogue = document.querySelector('#dialogue');
 const objective = document.querySelector('#objective');
 const coinBalance = document.querySelector('#coin-balance');
@@ -93,6 +97,7 @@ const start = { x: player.x, y: player.y };
 const npc = { x: 315, y: 232, size: 22, name: '루나' };
 const portal = { x: 688, y: 146, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
+const nextDungeonPortal = { x: 378, y: 66, size: 44 };
 const shopDoor = { x: 214, y: 180 };
 const fountain = { x: 148, y: 378 };
 // 3D 배경 오른쪽 아래 황금 제단의 불꽃 중심과 맞춥니다.
@@ -138,6 +143,8 @@ let coins = 0;
 let inDungeon = false;
 let inGrandVillage = false;
 let inWorldTreeSanctuary = false;
+let dungeonLevel = 1;
+let nextDungeonPortalUnlocked = false;
 let autoBattle = false;
 let autoDice = false;
 let nextAutoDiceAt = 0;
@@ -248,6 +255,30 @@ function rerollMonster(monster) {
   monster.x = monster.homeX;
   monster.y = monster.homeY;
   return levelIncrease;
+}
+
+function prepareDungeonFloor(level) {
+  dungeonLevel = level;
+  nextDungeonPortalUnlocked = false;
+  dungeonMonsters.forEach((monster, index) => {
+    const template = monsterTemplates[(index + level - 1) % monsterTemplates.length];
+    const monsterLevel = level + Math.floor(index / 3);
+    Object.assign(monster, { ...template, level: monsterLevel, defeated: false, lastHit: 0, respawnAt: 0 });
+    monster.maxHp = Math.ceil(monster.baseHp * (1 + (monsterLevel - 1) * .24));
+    monster.hp = monster.maxHp;
+    monster.damage = monster.baseDamage + (monsterLevel - 1) * 2;
+    monster.reward = monster.baseReward + (monsterLevel - 1) * 35;
+    monster.experience = monster.baseExperience + (monsterLevel - 1) * 12;
+    monster.x = monster.homeX; monster.y = monster.homeY;
+  });
+}
+
+function advanceDungeonFloor() {
+  prepareDungeonFloor(dungeonLevel + 1);
+  player.x = 5 * TILE; player.y = 9 * TILE;
+  dialogue.textContent = `✦ 던전 ${dungeonLevel}층에 진입했습니다. 모든 몬스터를 처치해 위쪽 포탈을 열어 보세요.`;
+  objective.textContent = `던전 ${dungeonLevel}층 정리`;
+  saveGame();
 }
 
 function rollTier() {
@@ -494,10 +525,11 @@ function enterDungeon() {
   inWorldTreeSanctuary = false;
   inDungeon = true;
   dungeonMonsters.forEach((monster) => { monster.lastHit = 0; });
+  nextDungeonPortalUnlocked = dungeonMonsters.every((monster) => monster.defeated);
   player.x = 5 * TILE;
   player.y = 9 * TILE;
-  dialogue.textContent = '던전에 입장했습니다. 왼쪽 귀환 포탈에서 E를 누르면 마을로 돌아갑니다.';
-  objective.textContent = '던전 탐험 중';
+  dialogue.textContent = `던전 ${dungeonLevel}층에 입장했습니다. 모든 몬스터를 처치하면 맨 위 포탈이 열립니다.`;
+  objective.textContent = `던전 ${dungeonLevel}층 정리`;
 }
 
 function exitDungeon() {
@@ -520,8 +552,10 @@ function interact() {
   else if (!inDungeon && isNearWorldTree()) enterWorldTreeSanctuary();
   else if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
   else if (!inDungeon && isNearPortal(portal)) enterDungeon();
+  else if (inDungeon && nextDungeonPortalUnlocked && isNearPortal(nextDungeonPortal)) advanceDungeonFloor();
   else if (inDungeon && isNearPortal(dungeonExit)) exitDungeon();
-  else dialogue.textContent = inDungeon ? '귀환 포탈 가까이에서 상호작용 버튼을 눌러주세요.' : '루나, 던전 포탈 또는 세계수 가까이에서 상호작용해 주세요.';
+  else if (inDungeon && isNearPortal(nextDungeonPortal)) dialogue.textContent = '다음 층 포탈은 이 층의 몬스터를 모두 처치하면 열립니다.';
+  else dialogue.textContent = inDungeon ? '왼쪽 귀환 포탈 또는 맨 위 다음 층 포탈 가까이에서 E를 눌러주세요.' : '루나, 던전 포탈 또는 세계수 가까이에서 상호작용해 주세요.';
 }
 
 function updateCoins() {
@@ -606,7 +640,7 @@ function saveGame(showMessage = false) {
   try {
     const snapshot = {
       player: { x: player.x, y: player.y, direction: player.direction },
-          coins, inDungeon, inGrandVillage, inWorldTreeSanctuary, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
+          coins, inDungeon, inGrandVillage, inWorldTreeSanctuary, dungeonLevel, nextDungeonPortalUnlocked, shopPrice, greeted, foundPortal, rebirth: { ...rebirth }, cosmetics: { ...cosmetics }, ownedCosmetics: [...ownedCosmetics],
       playerStats: { health: playerStats.health },
       playerLevel: { ...playerLevel },
       quest: { ...quest },
@@ -632,6 +666,8 @@ function loadGame() {
     if (typeof save.inDungeon === 'boolean') inDungeon = save.inDungeon;
     if (typeof save.inGrandVillage === 'boolean') inGrandVillage = save.inGrandVillage;
     if (typeof save.inWorldTreeSanctuary === 'boolean') inWorldTreeSanctuary = save.inWorldTreeSanctuary;
+    if (typeof save.dungeonLevel === 'number') dungeonLevel = Math.max(1, Math.floor(save.dungeonLevel));
+    if (typeof save.nextDungeonPortalUnlocked === 'boolean') nextDungeonPortalUnlocked = save.nextDungeonPortalUnlocked;
     if (typeof save.shopPrice === 'number') shopPrice = save.shopPrice;
       if (save.rebirth) Object.assign(rebirth, save.rebirth);
       if (save.cosmetics) Object.assign(cosmetics, save.cosmetics);
@@ -668,8 +704,9 @@ function loadGame() {
         Object.assign(dungeonMonsters[index], savedMonster);
         // performance.now() 값은 브라우저를 새로 열면 다시 시작하므로 저장하지 않는다.
         dungeonMonsters[index].lastHit = 0;
-        if (dungeonMonsters[index].defeated) dungeonMonsters[index].respawnAt = performance.now() + 1500;
+        dungeonMonsters[index].respawnAt = 0;
       });
+      if (dungeonMonsters.every((monster) => monster.defeated)) nextDungeonPortalUnlocked = true;
     return true;
   } catch {
     return false;
@@ -1390,7 +1427,10 @@ function drawMonster(monster) {
   const { x, y } = monster;
   const centerX = x + 16;
   const kind = monster.kind ?? ({ '보랏빛 슬라임': 'slime', '동굴 박쥐': 'bat', '불꽃 골렘': 'golem', '그림자 늑대': 'wolf' }[monster.name] ?? 'slime');
+  const bob = Math.sin(performance.now() / 210 + monster.homeX * .03) * (kind === 'bat' || kind === 'wisp' ? 2.4 : 1.1);
   ctx.save();
+  ctx.translate(0, bob);
+  const aura = ctx.createRadialGradient(centerX, y + 16, 2, centerX, y + 16, 27); aura.addColorStop(0, `${monster.color}66`); aura.addColorStop(.58, `${monster.color}18`); aura.addColorStop(1, `${monster.color}00`); ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(centerX, y + 16, 27, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(3, 6, 15, .48)'; ctx.beginPath(); ctx.ellipse(centerX, y + 28, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
   let eyeY = 16;
   if (kind === 'slime') {
@@ -1419,6 +1459,7 @@ function drawMonster(monster) {
     const cloak = ctx.createLinearGradient(x + 6, y + 7, x + 26, y + 28); cloak.addColorStop(0, '#8e82b9'); cloak.addColorStop(.35, '#4b456d'); cloak.addColorStop(1, '#1c2036'); ctx.fillStyle = cloak; ctx.beginPath(); ctx.moveTo(x + 9, y + 8); ctx.lineTo(x + 23, y + 8); ctx.lineTo(x + 28, y + 28); ctx.lineTo(x + 5, y + 28); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#34324d'; ctx.beginPath(); ctx.roundRect(x + 9, y + 4, 14, 14, 4); ctx.fill(); ctx.fillStyle = '#ff7dd7'; ctx.beginPath(); ctx.arc(x + 13, y + 11, 2, 0, Math.PI * 2); ctx.arc(x + 19, y + 11, 2, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#d7e3f2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 26, y + 25); ctx.lineTo(x + 32, y + 5); ctx.stroke(); eyeY = -99;
   }
   if (eyeY > 0) { ctx.fillStyle = '#fff7e4'; ctx.beginPath(); ctx.arc(x + 11, y + eyeY, 2.8, 0, Math.PI * 2); ctx.arc(x + 21, y + eyeY, 2.8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = kind === 'wisp' ? '#236d8e' : '#2d2638'; ctx.beginPath(); ctx.arc(x + 11, y + eyeY, 1.1, 0, Math.PI * 2); ctx.arc(x + 21, y + eyeY, 1.1, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(255, 245, 222, .32)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(centerX - 5, y + 11, 4, Math.PI * 1.1, Math.PI * 1.75); ctx.stroke();
   ctx.fillStyle = 'rgba(29, 19, 37, .78)'; ctx.beginPath(); ctx.roundRect(x - 2, y - 13, 36, 5, 3); ctx.fill(); const hpGradient = ctx.createLinearGradient(x, y, x + 30, y); hpGradient.addColorStop(0, '#ff9b8e'); hpGradient.addColorStop(1, '#ef4568'); ctx.fillStyle = hpGradient; ctx.beginPath(); ctx.roundRect(x, y - 12, 32 * Math.max(monster.hp, 0) / monster.maxHp, 3, 2); ctx.fill();
   ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; const label = `${monster.name} Lv.${monster.level}`; const labelWidth = ctx.measureText(label).width + 10; ctx.fillStyle = 'rgba(14, 19, 35, .78)'; ctx.beginPath(); ctx.roundRect(centerX - labelWidth / 2, y - 31, labelWidth, 14, 7); ctx.fill(); ctx.fillStyle = '#fff0df'; ctx.fillText(label, centerX, y - 21);
   ctx.restore();
@@ -1441,9 +1482,9 @@ function attackMonster(monster, damage, source = 'player') {
     dialogue.textContent = `${source === 'companion' ? '동료의 공격! ' : ''}${monster.name}에게 ${damage} 피해를 입혔어요.`;
     return;
   }
-    monster.hp = 0;
-    monster.defeated = true;
-    monster.respawnAt = performance.now() + 6000;
+  monster.hp = 0;
+  monster.defeated = true;
+    monster.respawnAt = 0;
     const earnedCoins = gainCoins(monster.reward);
       const levelsGained = gainExperience(monster.experience);
       updateShop();
@@ -1457,6 +1498,11 @@ function attackMonster(monster, damage, source = 'player') {
         } else {
           objective.textContent = `루나의 토벌 의뢰: ${quest.monsterKills}/${quest.requiredKills}`;
         }
+      }
+      if (dungeonMonsters.every((enemy) => enemy.defeated)) {
+        nextDungeonPortalUnlocked = true;
+        objective.textContent = `던전 ${dungeonLevel}층 완료 · 맨 위 포탈로 이동`;
+        dialogue.textContent = `✨ ${dungeonLevel}층의 몬스터를 모두 처치했습니다! 맨 위의 다음 층 포탈에서 E를 누르세요.`;
       }
   }
 
@@ -1555,10 +1601,6 @@ function updateAutoBattle(time, delta) {
 
 function updateCombat(time, delta) {
   if (!inDungeon) return;
-  dungeonMonsters.filter((monster) => monster.defeated && time >= monster.respawnAt).forEach((monster) => {
-    const levelIncrease = rerollMonster(monster);
-    dialogue.textContent = `새 몬스터 ${monster.name}이(가) Lv.${monster.level} (+${levelIncrease})로 나타났습니다!`;
-  });
   dungeonMonsters.filter((monster) => !monster.defeated).forEach((monster) => {
     const dx = player.x - monster.x; const dy = player.y - monster.y; const distance = Math.hypot(dx, dy) || 1;
       if (distance < 150 && distance > 38) { monster.x += dx / distance * 25 * delta; monster.y += dy / distance * 25 * delta; }
@@ -1614,28 +1656,16 @@ function drawCombatEffects() {
 }
 
 function drawDungeon() {
-  const floor = ctx.createRadialGradient(canvas.width * .53, canvas.height * .44, 30, canvas.width * .53, canvas.height * .44, 620);
-  floor.addColorStop(0, '#4b4a66'); floor.addColorStop(.48, '#292d46'); floor.addColorStop(1, '#12172a');
-  ctx.fillStyle = floor; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  for (let y = TILE; y < canvas.height - TILE; y += TILE) {
-    for (let x = TILE; x < canvas.width - TILE; x += TILE) {
-      const top = (x / TILE + y / TILE) % 2 ? '#383d59' : '#424765';
-      ctx.fillStyle = top; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, TILE - 2, TILE - 2, 3); ctx.fill();
-      ctx.strokeStyle = 'rgba(194, 201, 241, .14)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 4, y + 3); ctx.lineTo(x + TILE - 4, y + 3); ctx.moveTo(x + 3, y + 4); ctx.lineTo(x + 3, y + TILE - 4); ctx.stroke();
-      ctx.strokeStyle = 'rgba(3, 5, 15, .42)'; ctx.beginPath(); ctx.moveTo(x + TILE - 3, y + 5); ctx.lineTo(x + TILE - 3, y + TILE - 4); ctx.moveTo(x + 5, y + TILE - 3); ctx.lineTo(x + TILE - 3, y + TILE - 3); ctx.stroke();
-    }
-  }
-  const wall = ctx.createLinearGradient(0, 0, 0, TILE); wall.addColorStop(0, '#6e7391'); wall.addColorStop(1, '#32374f');
-  ctx.fillStyle = wall; ctx.fillRect(0, 0, canvas.width, TILE); ctx.fillRect(0, canvas.height - TILE, canvas.width, TILE);
-  ctx.fillStyle = '#3a3e59'; ctx.fillRect(0, 0, TILE, canvas.height); ctx.fillRect(canvas.width - TILE, 0, TILE, canvas.height);
-  ctx.strokeStyle = 'rgba(218, 198, 255, .22)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(TILE, TILE); ctx.lineTo(canvas.width - TILE, TILE); ctx.moveTo(TILE, canvas.height - TILE); ctx.lineTo(canvas.width - TILE, canvas.height - TILE); ctx.stroke();
+  ctx.fillStyle = '#070a16'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (dungeonBackgroundReady) ctx.drawImage(dungeonBackground, 0, 63, canvas.width, 450);
+  else { ctx.fillStyle = '#292d46'; ctx.fillRect(TILE, TILE, canvas.width - TILE * 2, canvas.height - TILE * 2); }
   const { x, y, size } = dungeonExit;
-  const returnGlow = ctx.createRadialGradient(x + size / 2, y + 23, 3, x + size / 2, y + 23, 40); returnGlow.addColorStop(0, 'rgba(196, 255, 233, .8)'); returnGlow.addColorStop(1, 'rgba(85, 220, 181, 0)'); ctx.fillStyle = returnGlow; ctx.beginPath(); ctx.arc(x + size / 2, y + 23, 40, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#315d63'; ctx.lineWidth = 11; ctx.beginPath(); ctx.ellipse(x + size / 2, y + 23, 17, 24, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = '#7ce6c2'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(x + size / 2, y + 23, 16, 23, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#bfffee'; ctx.beginPath(); ctx.ellipse(x + size / 2, y + 23, 8, 15, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#dffff2'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('귀환 E', x + size / 2, y - 4);
-  ctx.fillStyle = '#e8b4eb'; ctx.font = 'bold 17px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('별빛 던전 · 심층', canvas.width / 2, 56);
+  ctx.save(); ctx.globalCompositeOperation = 'screen'; const returnGlow = ctx.createRadialGradient(x + size / 2, y + 23, 3, x + size / 2, y + 23, 46); returnGlow.addColorStop(0, 'rgba(196, 255, 233, .66)'); returnGlow.addColorStop(1, 'rgba(85, 220, 181, 0)'); ctx.fillStyle = returnGlow; ctx.beginPath(); ctx.arc(x + size / 2, y + 23, 46, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#dffff2'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('귀환 · E', x + size / 2, y - 4);
+  const nx = nextDungeonPortal.x + nextDungeonPortal.size / 2; const ny = nextDungeonPortal.y + nextDungeonPortal.size / 2;
+  if (nextDungeonPortalUnlocked) { ctx.save(); ctx.globalCompositeOperation = 'screen'; const glow = ctx.createRadialGradient(nx, ny, 2, nx, ny, 54); glow.addColorStop(0, 'rgba(250, 188, 255, .9)'); glow.addColorStop(.4, 'rgba(179, 89, 255, .46)'); glow.addColorStop(1, 'rgba(112, 53, 226, 0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(nx, ny, 54, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#ffe6ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(nx, ny, 28 + Math.sin(performance.now() / 180) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); ctx.fillStyle = '#ffe9ff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.fillText('다음 층 · E', nx, nextDungeonPortal.y - 11); }
+  else { ctx.fillStyle = 'rgba(7, 8, 23, .44)'; ctx.beginPath(); ctx.ellipse(nx, ny, 27, 33, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#b0a2c9'; ctx.font = 'bold 10px Malgun Gothic'; ctx.fillText('몬스터 처치 필요', nx, nextDungeonPortal.y - 11); }
+  ctx.fillStyle = '#f1b9ff'; ctx.font = 'bold 17px Malgun Gothic'; ctx.fillText(`별빛 던전 · ${dungeonLevel}층`, canvas.width / 2, 35);
 }
 
 function drawCoins() {
