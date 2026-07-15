@@ -141,7 +141,12 @@ const tiers = {
   normal: { label: '일반', color: '#b9c3c9', bonus: 0, rank: 0, chance: .55 },
   rare: { label: '레어', color: '#63c8ff', bonus: 3, rank: 1, chance: .28 },
   epic: { label: '에픽', color: '#cb76ff', bonus: 7, rank: 2, chance: .13 },
-  legendary: { label: '전설', color: '#ffd35f', bonus: 14, rank: 3, chance: .04 },
+  legendary: { label: '전설', color: '#ffd35f', bonus: 14, rank: 3, chance: .025 },
+  mythic: { label: '신화', color: '#ff76c8', bonus: 25, rank: 4, chance: .0035 },
+  ancient: { label: '고대', color: '#ff914d', bonus: 42, rank: 5, chance: .001 },
+  divine: { label: '신성', color: '#a9f8ff', bonus: 66, rank: 6, chance: .00035 },
+  transcendent: { label: '초월', color: '#6dffc0', bonus: 98, rank: 7, chance: .0001 },
+  absolute: { label: '절대', color: '#fff2a6', bonus: 140, rank: 8, chance: .00003 },
 };
 const companionPool = ['구름 고양이', '불꽃 여우', '달빛 토끼', '꼬마 드래곤', '수정 요정', '별빛 강아지', '번개 다람쥐', '바다 거북', '꽃 정령', '미니 골렘'];
 const companionSkills = {
@@ -206,13 +211,26 @@ function rerollMonster(monster) {
 }
 
 function rollTier() {
-  const legendaryChance = Math.min(.04 * rebirth.luckMultiplier, .22);
-  const epicChance = Math.min(.13 * rebirth.luckMultiplier, .36);
-  const rareChance = Math.min(.28 * Math.sqrt(rebirth.luckMultiplier), .42);
+  const luck = rebirth.luckMultiplier;
+  const chances = [
+    ['absolute', Math.min(tiers.absolute.chance * luck, .0015)],
+    ['transcendent', Math.min(tiers.transcendent.chance * luck, .004)],
+    ['divine', Math.min(tiers.divine.chance * luck, .012)],
+    ['ancient', Math.min(tiers.ancient.chance * luck, .03)],
+    ['mythic', Math.min(tiers.mythic.chance * luck, .07)],
+    ['legendary', Math.min(tiers.legendary.chance * luck, .22)],
+    ['epic', Math.min(tiers.epic.chance * luck, .36)],
+    ['rare', Math.min(tiers.rare.chance * Math.sqrt(luck), .42)],
+  ];
+  // 행운이 높아져도 일반 등급이 최소 2%는 남도록 전체 확률을 정규화합니다.
+  const total = chances.reduce((sum, [, chance]) => sum + chance, 0);
+  const scale = total > .98 ? .98 / total : 1;
   const roll = Math.random();
-  if (roll < legendaryChance) return 'legendary';
-  if (roll < legendaryChance + epicChance) return 'epic';
-  if (roll < legendaryChance + epicChance + rareChance) return 'rare';
+  let threshold = 0;
+  for (const [tier, chance] of chances) {
+    threshold += chance * scale;
+    if (roll < threshold) return tier;
+  }
   return 'normal';
 }
 
@@ -577,7 +595,7 @@ function pullCompanion() {
 
 function sellPrice(type, item) {
   const base = type === 'companion' ? 180 : type === 'weapon' ? 120 : 100;
-  return base * [1, 3, 8, 25][tiers[item.tier].rank];
+  return base * [1, 3, 8, 25, 80, 260, 850, 2800, 9000][tiers[item.tier].rank];
 }
 
 function sellItem(type, item) {
@@ -621,15 +639,16 @@ function sellAllNormal() {
 }
 
 function synthesize(type) {
-  const order = ['normal', 'rare', 'epic', 'legendary'];
+  const order = Object.keys(tiers);
+  const maximumTier = order[order.length - 1];
   const sourceTier = order.find((tier) => inventory.items[type].filter((item) => item.tier === tier).length >= 3);
   if (!sourceTier) { dialogue.textContent = `${type === 'weapon' ? '무기' : type === 'armor' ? '방어구' : '동료'} 합성에는 같은 등급 아이템 3개가 필요합니다.`; return; }
   const ingredients = inventory.items[type].filter((item) => item.tier === sourceTier).slice(0, 3);
   inventory.items[type] = inventory.items[type].filter((item) => !ingredients.some((ingredient) => ingredient.id === item.id));
   inventory[type] -= 3;
   const sourceIndex = order.indexOf(sourceTier);
-  const bigSuccess = sourceTier !== 'legendary' && Math.random() < Math.min(.12 * rebirth.luckMultiplier, .45);
-  const nextTier = sourceTier === 'legendary' ? 'legendary' : order[Math.min(order.length - 1, sourceIndex + (bigSuccess ? 2 : 1))];
+  const bigSuccess = sourceIndex < order.length - 2 && Math.random() < Math.min(.12 * rebirth.luckMultiplier, .45);
+  const nextTier = sourceTier === maximumTier ? maximumTier : order[Math.min(order.length - 1, sourceIndex + (bigSuccess ? 2 : 1))];
   const pool = type === 'companion' ? companionPool : equipment[type];
   const item = { id: itemId(), name: pool[Math.floor(Math.random() * pool.length)], tier: nextTier };
   inventory.items[type].push(item);
@@ -637,8 +656,8 @@ function synthesize(type) {
   if (!inventory.equipped[type] || ingredients.some((ingredient) => ingredient.id === inventory.equipped[type]?.id)) inventory.equipped[type] = item;
   updateInventory();
   registerSynthesis();
-  dialogue.textContent = sourceTier === 'legendary'
-    ? `🔧 전설 재련 성공! 새로운 [전설] ${item.name}을(를) 얻었습니다!`
+  dialogue.textContent = sourceTier === maximumTier
+    ? `🔧 절대 재련 성공! 새로운 [절대] ${item.name}을(를) 얻었습니다!`
     : `🔧 ${bigSuccess ? '대성공! ' : ''}${tiers[sourceTier].label} 3개를 합성해 [${tiers[nextTier].label}] ${item.name}을(를) 만들었습니다!`;
 }
 
@@ -943,22 +962,44 @@ function drawGearAura(x, y) {
   const tier = tiers[tierName];
   if (tier.rank === 0) return;
   const time = performance.now() / 500;
+  const rank = tier.rank;
+  const auraColor = rank === 8 ? `hsl(${(time * 85) % 360} 100% 72%)` : tier.color;
   ctx.save();
-  ctx.globalAlpha = .55;
-  ctx.strokeStyle = tier.color;
-  ctx.lineWidth = tier.rank === 3 ? 3 : 2;
+  ctx.globalAlpha = Math.min(.42 + rank * .045, .84);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = auraColor;
+  ctx.lineWidth = 1.5 + Math.min(rank, 8) * .45;
   ctx.beginPath(); ctx.arc(x + 11, y + 13, 17 + Math.sin(time) * 2, 0, Math.PI * 2); ctx.stroke();
-  if (tier.rank >= 2) {
-    for (let index = 0; index < (tier.rank === 3 ? 7 : 4); index += 1) {
-      const angle = time * (tier.rank === 3 ? 1.8 : 1) + index * Math.PI * 2 / (tier.rank === 3 ? 7 : 4);
-      const radius = tier.rank === 3 ? 25 : 21;
+  if (rank >= 2) {
+    const particleCount = Math.min(4 + rank * 2, 20);
+    for (let index = 0; index < particleCount; index += 1) {
+      const angle = time * (1 + rank * .25) + index * Math.PI * 2 / particleCount;
+      const radius = 19 + rank * 2.2;
       const px = x + 11 + Math.cos(angle) * radius;
       const py = y + 13 + Math.sin(angle) * radius;
-      ctx.fillStyle = tier.color; ctx.beginPath(); ctx.arc(px, py, tier.rank === 3 ? 2.5 : 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = rank === 8 ? `hsl(${((time * 110) + index * 35) % 360} 100% 72%)` : tier.color;
+      ctx.beginPath(); ctx.arc(px, py, 1.4 + rank * .18, 0, Math.PI * 2); ctx.fill();
     }
   }
-  if (tier.rank === 3) {
-    ctx.globalAlpha = .3; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x + 11, y + 13, 27, time, time + Math.PI * 1.45); ctx.stroke();
+  if (rank >= 3) {
+    ctx.globalAlpha = .28 + Math.min(rank, 8) * .04; ctx.lineWidth = 3 + rank * .38;
+    ctx.beginPath(); ctx.arc(x + 11, y + 13, 23 + rank * 2, time, time + Math.PI * 1.5); ctx.stroke();
+  }
+  if (rank >= 5) {
+    ctx.globalAlpha = .5; ctx.lineWidth = 1.5;
+    for (let index = 0; index < 3; index += 1) {
+      const rotation = -time * (1 + index * .2) + index * Math.PI * 2 / 3;
+      ctx.beginPath(); ctx.ellipse(x + 11, y + 13, 29 + rank * 2 + index * 4, 9 + index * 3, rotation, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  if (rank >= 7) {
+    ctx.globalAlpha = .82; ctx.fillStyle = rank === 8 ? auraColor : '#ffffff';
+    for (let index = 0; index < rank - 3; index += 1) {
+      const angle = time * 2.2 + index * Math.PI * 2 / (rank - 3);
+      const px = x + 11 + Math.cos(angle) * (31 + rank * 2);
+      const py = y + 13 + Math.sin(angle) * (31 + rank * 2);
+      ctx.beginPath(); ctx.moveTo(px, py - 3); ctx.lineTo(px + 2, py); ctx.lineTo(px, py + 3); ctx.lineTo(px - 2, py); ctx.closePath(); ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -1022,7 +1063,22 @@ function drawCompanion() {
   const color = colors[name] ?? '#f4a164';
   ctx.save();
   ctx.fillStyle = 'rgba(7, 18, 26, .32)'; ctx.beginPath(); ctx.ellipse(x + 10, y + 22, 12, 3.8, 0, 0, Math.PI * 2); ctx.fill();
-  if (tierInfo.rank > 0) { ctx.strokeStyle = tierInfo.color; ctx.lineWidth = tierInfo.rank + 1; ctx.globalAlpha = .68; ctx.beginPath(); ctx.arc(x + 10, y + 11, 14 + Math.sin(performance.now() / 130) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+  if (tierInfo.rank > 0) {
+    ctx.strokeStyle = tierInfo.rank === 8 ? `hsl(${(performance.now() / 7) % 360} 100% 75%)` : tierInfo.color;
+    ctx.lineWidth = Math.min(tierInfo.rank + 1, 5); ctx.globalAlpha = .68;
+    ctx.beginPath(); ctx.arc(x + 10, y + 11, 14 + Math.sin(performance.now() / 130) * 2, 0, Math.PI * 2); ctx.stroke();
+    if (tierInfo.rank >= 4) {
+      const sparks = Math.min(tierInfo.rank + 1, 8);
+      for (let index = 0; index < sparks; index += 1) {
+        const angle = performance.now() / 280 + index * Math.PI * 2 / sparks;
+        const px = x + 10 + Math.cos(angle) * (17 + tierInfo.rank * 1.5);
+        const py = y + 11 + Math.sin(angle) * (17 + tierInfo.rank * 1.5);
+        ctx.fillStyle = tierInfo.rank === 8 ? `hsl(${((performance.now() / 7) + index * 42) % 360} 100% 75%)` : tierInfo.color;
+        ctx.beginPath(); ctx.arc(px, py, 1 + tierInfo.rank * .12, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
   const body = ctx.createRadialGradient(x + 6, y + 6, 1, x + 11, y + 13, 13);
   body.addColorStop(0, '#fffde5'); body.addColorStop(.2, color); body.addColorStop(.78, color); body.addColorStop(1, '#253048');
   const earOrWing = (name === '구름 고양이' || name === '불꽃 여우' || name === '별빛 강아지' || name === '번개 다람쥐');

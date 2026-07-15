@@ -201,8 +201,19 @@ h2 { margin: 0; font-size: 24px; }
 .item-list li.tier-rare, .equipment-slot.tier-rare { border-color: #63c8ff; box-shadow: 0 0 9px rgba(99, 200, 255, .32); }
 .item-list li.tier-epic, .equipment-slot.tier-epic { border-color: #cb76ff; background: linear-gradient(135deg, #49365e, #5e3471); box-shadow: 0 0 12px rgba(203, 118, 255, .5); }
 .item-list li.tier-legendary, .equipment-slot.tier-legendary { border-color: #ffd35f; background: linear-gradient(135deg, #665022, #875f20); box-shadow: 0 0 14px rgba(255, 211, 95, .7); animation: legendary-shine 1.4s ease-in-out infinite alternate; }
-.tier-rare .inventory-item { color: #bfeaff; }.tier-epic .inventory-item { color: #f0c5ff; }.tier-legendary .inventory-item { color: #fff0a6; text-shadow: 0 0 5px #ffd35f; }
+.item-list li.tier-mythic, .equipment-slot.tier-mythic { border-color: #ff76c8; background: linear-gradient(135deg, #702b68, #c24791); box-shadow: 0 0 17px rgba(255, 118, 200, .75); animation: mythic-pulse 1.2s ease-in-out infinite alternate; }
+.item-list li.tier-ancient, .equipment-slot.tier-ancient { border-color: #ff914d; background: linear-gradient(135deg, #79392b, #c4602a); box-shadow: 0 0 19px rgba(255, 128, 67, .8); animation: ancient-flame 1s ease-in-out infinite alternate; }
+.item-list li.tier-divine, .equipment-slot.tier-divine { border-color: #a9f8ff; background: linear-gradient(135deg, #286276, #4ec7db); box-shadow: 0 0 21px rgba(169, 248, 255, .88); animation: divine-light 1.1s ease-in-out infinite alternate; }
+.item-list li.tier-transcendent, .equipment-slot.tier-transcendent { border-color: #6dffc0; background: linear-gradient(135deg, #1b6855, #2bb780); box-shadow: 0 0 24px rgba(109, 255, 192, .92); animation: transcendent-flow .9s linear infinite; }
+.item-list li.tier-absolute, .equipment-slot.tier-absolute { border-color: #fff2a6; background: linear-gradient(135deg, #6e4aad, #ec75bd, #50dfe5, #f2bc55); background-size: 300% 300%; box-shadow: 0 0 28px rgba(255, 242, 166, .98); animation: absolute-prism 1.3s linear infinite; }
+.tier-rare .inventory-item { color: #bfeaff; }.tier-epic .inventory-item { color: #f0c5ff; }.tier-legendary .inventory-item { color: #fff0a6; text-shadow: 0 0 5px #ffd35f; }.tier-mythic .inventory-item { color: #ffd1ee; text-shadow: 0 0 6px #ff76c8; }.tier-ancient .inventory-item { color: #ffe0bd; text-shadow: 0 0 6px #ff914d; }.tier-divine .inventory-item { color: #e5fdff; text-shadow: 0 0 6px #a9f8ff; }.tier-transcendent .inventory-item { color: #d7ffeb; text-shadow: 0 0 6px #6dffc0; }.tier-absolute .inventory-item { color: #fffce8; text-shadow: 0 0 7px #fff2a6; }
 @keyframes legendary-shine { from { filter: brightness(.94); } to { filter: brightness(1.22); } }
+@keyframes mythic-pulse { from { filter: brightness(.9) saturate(1); } to { filter: brightness(1.28) saturate(1.3); } }
+@keyframes ancient-flame { from { filter: brightness(.92); transform: translateY(0); } to { filter: brightness(1.3); transform: translateY(-1px); } }
+@keyframes divine-light { from { filter: brightness(.95); } to { filter: brightness(1.45); } }
+@keyframes transcendent-flow { to { filter: hue-rotate(24deg) brightness(1.2); } }
+@keyframes absolute-prism { 0% { background-position: 0% 50%; filter: brightness(1); } 50% { background-position: 100% 50%; filter: brightness(1.38); } 100% { background-position: 0% 50%; filter: brightness(1); } }
+.tier-guide { margin: 4px 0 9px; color: #d6e9ff; font-size: 10px; text-align: center; }.tier-guide b { color: #fff2a6; }
 
 footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; padding: 14px 6px 0; color: #c4d1dc; font-size: 13px; }
 kbd { display: inline-block; min-width: 20px; margin: 0 2px; padding: 2px 5px; border: 1px solid #8fa1ae; border-radius: 4px; color: #fff; background: #27384b; font-family: inherit; font-size: 11px; text-align: center; }
