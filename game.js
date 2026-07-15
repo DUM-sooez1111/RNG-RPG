@@ -17,7 +17,6 @@ const experienceValue = document.querySelector('#experience-value');
 const saveButton = document.querySelector('#save-button');
 const autoButton = document.querySelector('#auto-button');
 const autoDiceButton = document.querySelector('#auto-dice-button');
-const rebirthButton = document.querySelector('#rebirth-button');
 const rebirthInfo = document.querySelector('#rebirth-info');
 const devicePicker = document.querySelector('#device-picker');
 const deviceButtons = document.querySelectorAll('[data-device]');
@@ -92,12 +91,13 @@ const portal = { x: 688, y: 146, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
 const shopDoor = { x: 214, y: 180 };
 const fountain = { x: 148, y: 378 };
-const enchantPillar = { x: 650, y: 456 };
+const enchantPillar = { x: 605, y: 456 };
+const worldTree = { x: 716, y: 460 };
 const villageObstacles = [
   // 배경의 집·수풀·절벽을 막아 길 밖으로 걸어 나가지 못하게 합니다.
   { x: 70, y: 68, width: 230, height: 92 },
   { x: 18, y: 185, width: 75, height: 135 },
-  { x: 705, y: 335, width: 80, height: 180 },
+  { x: 760, y: 335, width: 25, height: 180 },
   { x: 290, y: 510, width: 250, height: 48 },
 ];
 const grandVillageObstacles = [
@@ -395,6 +395,10 @@ function isNearEnchantPillar() {
   return Math.hypot(player.x - enchantPillar.x, player.y - enchantPillar.y) < 70;
 }
 
+function isNearWorldTree() {
+  return Math.hypot(player.x - worldTree.x, player.y - worldTree.y) < 82;
+}
+
 function updateAreaTransition() {
   if (inDungeon) return;
   if (!inGrandVillage && player.x > 708 && player.y < 108) {
@@ -433,10 +437,11 @@ function exitDungeon() {
 
 function interact() {
   if (inGrandVillage) dialogue.textContent = '대마을은 현재 탐험 지도입니다. 왼쪽 아래 관문으로 돌아가세요.';
+  else if (!inDungeon && isNearWorldTree()) performRebirth();
   else if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
   else if (!inDungeon && isNearPortal(portal)) enterDungeon();
   else if (inDungeon && isNearPortal(dungeonExit)) exitDungeon();
-  else dialogue.textContent = inDungeon ? '귀환 포탈 가까이에서 상호작용 버튼을 눌러주세요.' : '루나 또는 던전 포탈 가까이에서 상호작용해 주세요.';
+  else dialogue.textContent = inDungeon ? '귀환 포탈 가까이에서 상호작용 버튼을 눌러주세요.' : '루나, 던전 포탈 또는 세계수 가까이에서 상호작용해 주세요.';
 }
 
 function updateCoins() {
@@ -452,7 +457,7 @@ function gainCoins(amount) {
 }
 
 function updateRebirthUI() {
-  rebirthInfo.textContent = `${rebirth.count}회 · 💰x${rebirth.coinMultiplier.toFixed(2)} · 🍀x${rebirth.luckMultiplier.toFixed(2)}`;
+  rebirthInfo.textContent = `🌳 세계수 환생 ${rebirth.count}회 · 💰x${rebirth.coinMultiplier.toFixed(2)} · 🍀x${rebirth.luckMultiplier.toFixed(2)}`;
 }
 
 function performRebirth() {
@@ -1239,6 +1244,19 @@ function drawEnchantPillar() {
   ctx.globalAlpha = 1; ctx.fillStyle = '#fff2b3'; ctx.font = 'bold 10px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('인챈트 · R', x, y - 43); ctx.restore();
 }
 
+function drawWorldTree() {
+  const { x, y } = worldTree; const time = performance.now();
+  ctx.save();
+  const aura = ctx.createRadialGradient(x, y - 34, 8, x, y - 28, 86); aura.addColorStop(0, 'rgba(151, 255, 210, .5)'); aura.addColorStop(.5, 'rgba(90, 186, 222, .17)'); aura.addColorStop(1, 'rgba(60, 132, 170, 0)'); ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(x, y - 28, 86, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(19, 34, 44, .42)'; ctx.beginPath(); ctx.ellipse(x, y + 18, 55, 13, 0, 0, Math.PI * 2); ctx.fill();
+  const trunk = ctx.createLinearGradient(x - 18, y - 60, x + 20, y + 22); trunk.addColorStop(0, '#d5e9cf'); trunk.addColorStop(.42, '#5d8e79'); trunk.addColorStop(1, '#274c4c'); ctx.fillStyle = trunk; ctx.beginPath(); ctx.moveTo(x - 17, y + 19); ctx.bezierCurveTo(x - 12, y - 11, x - 26, y - 37, x - 12, y - 66); ctx.lineTo(x + 10, y - 66); ctx.bezierCurveTo(x + 26, y - 26, x + 11, y - 5, x + 22, y + 19); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#b7ffdc'; ctx.lineWidth = 2; ctx.globalAlpha = .78; ctx.beginPath(); ctx.moveTo(x - 5, y + 9); ctx.bezierCurveTo(x - 12, y - 17, x + 5, y - 27, x - 4, y - 56); ctx.moveTo(x + 5, y + 13); ctx.bezierCurveTo(x + 13, y - 11, x - 3, y - 31, x + 4, y - 61); ctx.stroke();
+  const leaf = (dx, dy, radius, color) => { const g = ctx.createRadialGradient(x + dx - radius * .3, y + dy - radius * .4, 2, x + dx, y + dy, radius); g.addColorStop(0, '#e6ffe3'); g.addColorStop(.35, color); g.addColorStop(1, '#2a6d68'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + dx, y + dy, radius, 0, Math.PI * 2); ctx.fill(); };
+  leaf(-29, -65, 27, '#83d7a8'); leaf(2, -82, 32, '#76d5b8'); leaf(31, -62, 28, '#70bfe1'); leaf(-4, -43, 35, '#6dc89b'); leaf(24, -35, 24, '#8de4bb');
+  for (let index = 0; index < 11; index += 1) { const angle = time / 1000 + index * Math.PI * 2 / 11; const radius = 42 + (index % 3) * 9; const px = x + Math.cos(angle) * radius; const py = y - 42 + Math.sin(angle) * radius * .68; ctx.fillStyle = index % 2 ? '#ceffe6' : '#9ae8ff'; ctx.beginPath(); ctx.arc(px, py, 1.4 + (index % 2), 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.strokeStyle = '#c6ffdc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + 15, 42 + Math.sin(time / 230) * 2, 12, 0, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#e7fff0'; ctx.font = 'bold 11px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('세계수 · E', x, y - 119); ctx.restore();
+}
+
 function drawGrandVillage() {
   const sky = ctx.createLinearGradient(0, 0, 0, canvas.height); sky.addColorStop(0, '#5ea0c4'); sky.addColorStop(.42, '#8ccaba'); sky.addColorStop(1, '#527f69'); ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#65a85b'; ctx.fillRect(0, 104, canvas.width, canvas.height - 104);
@@ -1536,6 +1554,7 @@ function draw() {
     drawFountain();
     drawPortal();
     drawEnchantPillar();
+    drawWorldTree();
     drawShopSign();
     drawCoins();
     drawCharacter(npc);
@@ -1674,7 +1693,6 @@ synthesisButtons.forEach((button) => button.addEventListener('click', () => synt
 sellNormalButton.addEventListener('click', sellAllNormal);
 cosmeticButtons.forEach((button) => button.addEventListener('click', () => applyCosmetic(button.dataset.cosmetic)));
 saveButton.addEventListener('click', () => saveGame(true));
-rebirthButton.addEventListener('click', performRebirth);
 addEventListener('beforeunload', () => saveGame());
 
 const restoredSave = loadGame();
