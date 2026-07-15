@@ -475,13 +475,7 @@ function isNearSanctuaryExit() {
 }
 
 function updateAreaTransition() {
-  if (inDungeon || inWorldTreeSanctuary) return;
-  if (inGrandVillage && player.x < 92 && player.y > 438) {
-    inGrandVillage = false;
-    player.x = 112; player.y = 344;
-    dialogue.textContent = '대마을 지도에서 별빛 마을로 돌아왔습니다.';
-    objective.textContent = '마을을 둘러보세요';
-  }
+  // 대마을은 로비 위에 여는 지도 화면이므로, 구역 이동 처리가 필요하지 않습니다.
 }
 
 function openGrandVillageMap() {
@@ -490,13 +484,14 @@ function openGrandVillageMap() {
     return;
   }
   if (inGrandVillage) {
-    dialogue.textContent = '대마을 지도를 이미 탐험 중입니다.';
+    inGrandVillage = false;
+    dialogue.textContent = '대마을 지도를 닫고 로비로 돌아왔습니다.';
+    objective.textContent = '마을을 둘러보세요';
     return;
   }
   inGrandVillage = true;
-  player.x = 112; player.y = 455;
-  dialogue.textContent = '대마을 지도를 열었습니다. 왼쪽 아래 관문으로 돌아갈 수 있어요.';
-  objective.textContent = '대마을 둘러보기';
+  dialogue.textContent = '대마을 지도를 열었습니다. Z를 다시 누르면 로비로 돌아갑니다.';
+  objective.textContent = '대마을 지도 확인';
 }
 
 function enterWorldTreeSanctuary() {
@@ -542,7 +537,7 @@ function interact() {
   if (inWorldTreeSanctuary && isNearSanctuaryTree()) performRebirth();
   else if (inWorldTreeSanctuary && isNearSanctuaryExit()) exitWorldTreeSanctuary();
   else if (inWorldTreeSanctuary) dialogue.textContent = '중앙의 세계수 또는 아래 성역 입구 가까이에서 E를 눌러주세요.';
-  else if (inGrandVillage) dialogue.textContent = '대마을은 현재 탐험 지도입니다. 왼쪽 아래 관문으로 돌아가세요.';
+  else if (inGrandVillage) dialogue.textContent = '대마을 지도 화면입니다. Z 또는 Esc를 눌러 로비로 돌아가세요.';
   else if (!inDungeon && isNearWorldTree()) enterWorldTreeSanctuary();
   else if (!inDungeon && Math.hypot(player.x - npc.x, player.y - npc.y) < 60) interactWithLuna();
   else if (!inDungeon && isNearPortal(portal)) enterDungeon();
@@ -658,7 +653,9 @@ function loadGame() {
     if (save.player) Object.assign(player, save.player);
     if (typeof save.coins === 'number') coins = save.coins;
     if (typeof save.inDungeon === 'boolean') inDungeon = save.inDungeon;
-    if (typeof save.inGrandVillage === 'boolean') inGrandVillage = save.inGrandVillage;
+    // 이전 버전의 대마을 이동 저장은 로비로 복귀시켜, 지도 화면에 갇히지 않게 합니다.
+    if (save.inGrandVillage) { player.x = 112; player.y = 344; }
+    inGrandVillage = false;
     if (typeof save.inWorldTreeSanctuary === 'boolean') inWorldTreeSanctuary = save.inWorldTreeSanctuary;
     if (typeof save.dungeonLevel === 'number') dungeonLevel = Math.max(1, Math.floor(save.dungeonLevel));
     if (typeof save.nextDungeonPortalUnlocked === 'boolean') nextDungeonPortalUnlocked = save.nextDungeonPortalUnlocked;
@@ -1422,8 +1419,7 @@ function drawWorldTreeSanctuary() {
 function drawGrandVillage() {
   if (grandVillageBackgroundReady) {
     ctx.drawImage(grandVillageBackground, 0, 0, canvas.width, canvas.height);
-    // 제공된 지도 속 플레이어·주사위 자리는 실제 플레이어가 겹치지 않도록 돌길 무늬로 정리합니다.
-    const path = ctx.createRadialGradient(400, 282, 3, 400, 282, 42); path.addColorStop(0, 'rgba(223, 198, 126, .98)'); path.addColorStop(.65, 'rgba(212, 184, 111, .9)'); path.addColorStop(1, 'rgba(190, 159, 93, 0)'); ctx.fillStyle = path; ctx.beginPath(); ctx.ellipse(400, 280, 36, 50, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.fillStyle = 'rgba(5, 17, 31, .78)'; ctx.beginPath(); ctx.roundRect(266, 488, 268, 31, 10); ctx.fill(); ctx.fillStyle = '#e8f8ff'; ctx.font = 'bold 12px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('Z를 다시 누르면 로비로 돌아갑니다', 400, 509); ctx.restore();
     return;
   }
   const sky = ctx.createLinearGradient(0, 0, 0, canvas.height); sky.addColorStop(0, '#5ea0c4'); sky.addColorStop(.42, '#8ccaba'); sky.addColorStop(1, '#527f69'); ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1434,7 +1430,7 @@ function drawGrandVillage() {
   house(154, 110, 128, 88, '#b85b52'); house(421, 99, 146, 94, '#4b779c'); house(595, 263, 126, 87, '#9d606f'); house(282, 344, 138, 90, '#7d6aa8');
   for (const [x, y] of [[78, 170], [92, 252], [348, 92], [727, 117], [750, 432], [484, 454], [197, 466], [555, 216]]) { ctx.fillStyle = '#5c432c'; ctx.fillRect(x - 3, y + 12, 7, 20); ctx.fillStyle = '#2e7959'; ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#55a96b'; ctx.beginPath(); ctx.arc(x - 7, y - 7, 13, 0, Math.PI * 2); ctx.fill(); }
   ctx.fillStyle = 'rgba(13, 33, 52, .64)'; ctx.beginPath(); ctx.roundRect(278, 19, 244, 34, 14); ctx.fill(); ctx.fillStyle = '#fff1ba'; ctx.font = 'bold 18px Malgun Gothic'; ctx.textAlign = 'center'; ctx.fillText('대마을 지도 · 개발 중', canvas.width / 2, 42);
-  ctx.fillStyle = '#e6f4ff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.fillText('◀ 별빛 마을로 돌아가기', 101, 528);
+  ctx.fillStyle = '#e6f4ff'; ctx.font = 'bold 11px Malgun Gothic'; ctx.fillText('Z를 다시 눌러 로비로 돌아가기', 132, 528);
 }
 
 function drawShopSign() {
@@ -1707,9 +1703,6 @@ function draw() {
     drawDice();
   } else if (inGrandVillage) {
     drawGrandVillage();
-    drawCompanion();
-    drawCharacter(player, true);
-    drawDice();
   } else if (inWorldTreeSanctuary) {
     drawWorldTreeSanctuary();
     drawCompanion();
@@ -1739,7 +1732,7 @@ function update(time) {
   if (keys.has('arrowright') || keys.has('d')) { dx += player.speed * delta; player.direction = 'right'; }
   if (keys.has('arrowup') || keys.has('w')) { dy -= player.speed * delta; player.direction = 'up'; }
   if (keys.has('arrowdown') || keys.has('s')) { dy += player.speed * delta; player.direction = 'down'; }
-  if (dx || dy) move(dx, dy);
+  if ((dx || dy) && !inGrandVillage) move(dx, dy);
   if (!inDungeon) {
     updateAreaTransition();
   }
@@ -1801,7 +1794,7 @@ addEventListener('keydown', (event) => {
     event.preventDefault();
     interact();
   }
-  if (key === 'escape') { setInventoryOpen(false); setSkillOpen(false); setShopOpen(false); setEnchantOpen(false); }
+  if (key === 'escape') { setInventoryOpen(false); setSkillOpen(false); setShopOpen(false); setEnchantOpen(false); if (inGrandVillage) openGrandVillageMap(); }
   keys.add(key);
 });
 addEventListener('keyup', (event) => keys.delete(event.key.toLowerCase()));
