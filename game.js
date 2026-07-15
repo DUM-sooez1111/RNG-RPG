@@ -3,8 +3,12 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
 const villageBackground = new Image();
 let villageBackgroundReady = false;
-villageBackground.addEventListener('load', () => { villageBackgroundReady = true; });
+villageBackground.addEventListener('load', () => { villageBackgroundReady = true; unstickPlayer(); });
 villageBackground.src = 'assets/starlight-village-3d.png';
+const grandVillageBackground = new Image();
+let grandVillageBackgroundReady = false;
+grandVillageBackground.addEventListener('load', () => { grandVillageBackgroundReady = true; });
+grandVillageBackground.src = 'assets/grand-village-map.png';
 const dialogue = document.querySelector('#dialogue');
 const objective = document.querySelector('#objective');
 const coinBalance = document.querySelector('#coin-balance');
@@ -314,7 +318,22 @@ function isBlocked(x, y) {
     .some(([px, py]) => ['1', '2', '4'].includes(tileAt(px, py)));
 }
 
+function unstickPlayer() {
+  if (!isBlocked(player.x, player.y)) return false;
+  const originX = player.x; const originY = player.y;
+  for (let radius = 14; radius <= 240; radius += 14) {
+    for (let step = 0; step < 24; step += 1) {
+      const angle = step * Math.PI * 2 / 24;
+      const x = originX + Math.cos(angle) * radius;
+      const y = originY + Math.sin(angle) * radius;
+      if (!isBlocked(x, y)) { player.x = x; player.y = y; return true; }
+    }
+  }
+  return false;
+}
+
 function move(dx, dy) {
+  unstickPlayer();
   const nx = player.x + dx;
   const ny = player.y + dy;
   if (!isBlocked(nx, player.y)) player.x = nx;
@@ -456,7 +475,7 @@ function enterWorldTreeSanctuary() {
 
 function exitWorldTreeSanctuary() {
   inWorldTreeSanctuary = false;
-  player.x = worldTree.x - 88; player.y = worldTree.y + 3;
+  player.x = 560; player.y = 450;
   dialogue.textContent = '세계수 성역에서 나왔습니다.';
   objective.textContent = '마을을 둘러보세요';
 }
@@ -1336,6 +1355,12 @@ function drawWorldTreeSanctuary() {
 }
 
 function drawGrandVillage() {
+  if (grandVillageBackgroundReady) {
+    ctx.drawImage(grandVillageBackground, 0, 0, canvas.width, canvas.height);
+    // 제공된 지도 속 플레이어·주사위 자리는 실제 플레이어가 겹치지 않도록 돌길 무늬로 정리합니다.
+    const path = ctx.createRadialGradient(400, 282, 3, 400, 282, 42); path.addColorStop(0, 'rgba(223, 198, 126, .98)'); path.addColorStop(.65, 'rgba(212, 184, 111, .9)'); path.addColorStop(1, 'rgba(190, 159, 93, 0)'); ctx.fillStyle = path; ctx.beginPath(); ctx.ellipse(400, 280, 36, 50, 0, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
   const sky = ctx.createLinearGradient(0, 0, 0, canvas.height); sky.addColorStop(0, '#5ea0c4'); sky.addColorStop(.42, '#8ccaba'); sky.addColorStop(1, '#527f69'); ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#65a85b'; ctx.fillRect(0, 104, canvas.width, canvas.height - 104);
   for (let y = 114; y < canvas.height; y += 36) for (let x = (y / 36 % 2) * 16; x < canvas.width; x += 46) { ctx.fillStyle = 'rgba(183, 231, 117, .16)'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); }
