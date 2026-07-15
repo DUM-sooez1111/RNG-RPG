@@ -67,6 +67,7 @@ h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); letter-spacing: -.04em; }
 .player-stats span:last-child { padding-right: 0; border-right: 0; }
 .player-stats b { color: #fff8d8; }
 .health-stat { color: #ff92a1; }
+.damage-reduction { color: #9fe9ff; font-size: 10px; font-weight: 800; white-space: nowrap; }
 
 .inventory-button, .close-button {
   border: 1px solid #9eb3c2;

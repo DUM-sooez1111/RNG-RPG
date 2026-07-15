@@ -11,6 +11,7 @@ const coinBalance = document.querySelector('#coin-balance');
 const healthValue = document.querySelector('#health-value');
 const attackValue = document.querySelector('#attack-value');
 const defenseValue = document.querySelector('#defense-value');
+const damageReduction = document.querySelector('#damage-reduction');
 const levelValue = document.querySelector('#level-value');
 const experienceValue = document.querySelector('#experience-value');
 const saveButton = document.querySelector('#save-button');
@@ -453,9 +454,11 @@ function updateStats() {
   playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
   playerStats.attack = playerStats.baseAttack + skills.bonusAttack + weaponTierBonus + (weaponIndex < 0 ? 0 : equipmentPower.weapon[weaponIndex]);
   playerStats.defense = playerStats.baseDefense + skills.bonusDefense + armorTierBonus + (armorIndex < 0 ? 0 : equipmentPower.armor[armorIndex]);
-  healthValue.textContent = `${playerStats.health} / ${playerStats.maxHealth}`;
+  const health = Number.isInteger(playerStats.health) ? playerStats.health : playerStats.health.toFixed(1);
+  healthValue.textContent = `${health} / ${playerStats.maxHealth}`;
   attackValue.textContent = playerStats.attack;
   defenseValue.textContent = playerStats.defense;
+  damageReduction.textContent = `피해 -${Math.min(playerStats.defense * .1, 80).toFixed(1)}%`;
 }
 
 function updateLevel() {
@@ -1326,10 +1329,11 @@ function updateCombat(time, delta) {
       if (distance <= 46 && time - monster.lastHit >= 900) {
       monster.lastHit = time;
         const shield = time < companionShieldUntil ? 6 : 0;
-        const damage = Math.max(1, monster.damage - playerStats.defense - shield);
+        const defenseRate = Math.min(playerStats.defense * .001, .8);
+        const damage = Math.max(1, Number((monster.damage * (1 - defenseRate) - shield).toFixed(2)));
       playerStats.health = Math.max(0, playerStats.health - damage);
       updateStats();
-        dialogue.textContent = `${monster.name}의 공격! ${damage} 피해를 받았습니다.${shield ? ' (달빛 보호막 적용)' : ''}`;
+        dialogue.textContent = `${monster.name}의 공격! ${damage} 피해를 받았습니다. (방어력 피해 감소 ${(defenseRate * 100).toFixed(1)}%${shield ? ' · 달빛 보호막 적용' : ''})`;
       if (playerStats.health === 0) {
         playerStats.health = playerStats.maxHealth;
         exitDungeon();
