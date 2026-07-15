@@ -4,7 +4,7 @@ ctx.imageSmoothingEnabled = true;
 const villageBackground = new Image();
 let villageBackgroundReady = false;
 villageBackground.addEventListener('load', () => { villageBackgroundReady = true; unstickPlayer(); });
-villageBackground.src = 'assets/starlight-village-3d.png';
+villageBackground.src = 'assets/starlight-village-pixel.png';
 const grandVillageBackground = new Image();
 let grandVillageBackgroundReady = false;
 grandVillageBackground.addEventListener('load', () => { grandVillageBackgroundReady = true; });
@@ -98,32 +98,22 @@ const map = [
 
 const player = { x: 11 * TILE + 5, y: 12 * TILE + 4, size: 22, speed: 155, direction: 'down' };
 const start = { x: player.x, y: player.y };
-const npc = { x: 315, y: 232, size: 22, name: '루나' };
-const portal = { x: 688, y: 146, size: 54 };
+const npc = { x: 370, y: 196, size: 22, name: '루나' };
+const portal = { x: 708, y: 338, size: 54 };
 const dungeonExit = { x: 2 * TILE + 4, y: 8 * TILE + 2, size: 45 };
 const nextDungeonPortal = { x: 378, y: 66, size: 44 };
-const shopDoor = { x: 214, y: 180 };
-const fountain = { x: 148, y: 378 };
-// 3D 배경 오른쪽 아래 황금 제단의 불꽃 중심과 맞춥니다.
-const enchantPillar = { x: 603, y: 398 };
-const worldTree = { x: 716, y: 460 };
+const shopDoor = { x: 402, y: 458 };
+const fountain = { x: 400, y: 252 };
+const enchantPillar = { x: 600, y: 447 };
+const worldTree = { x: 706, y: 505 };
 const sanctuaryTree = { x: 400, y: 246 };
 const sanctuaryExit = { x: 400, y: 520 };
 const villageObstacles = [
-  // 배경의 집·수풀·절벽을 막아 길 밖으로 걸어 나가지 못하게 합니다.
-  { x: 70, y: 68, width: 230, height: 92 },
-  { x: 18, y: 185, width: 75, height: 135 },
-  { x: 760, y: 335, width: 25, height: 180 },
-  { x: 290, y: 510, width: 250, height: 48 },
-  // 실제 3D 배경의 나무·바위·분수 가장자리 충돌 영역입니다.
-  { kind: 'circle', x: 65, y: 77, radius: 48 },
-  { kind: 'circle', x: 281, y: 128, radius: 27 },
-  { kind: 'circle', x: 520, y: 145, radius: 36 },
-  { kind: 'circle', x: 564, y: 190, radius: 30 },
-  { kind: 'circle', x: 148, y: 378, radius: 35 },
-  { kind: 'circle', x: 89, y: 505, radius: 55 },
-  { kind: 'circle', x: 647, y: 493, radius: 39 },
-  { kind: 'circle', x: 716, y: 460, radius: 43 },
+  // 픽셀 마을의 집·분수·나무 지형 충돌 영역입니다.
+  { x: 78, y: 30, width: 120, height: 104 }, { x: 335, y: 27, width: 122, height: 100 }, { x: 573, y: 30, width: 130, height: 108 },
+  { x: 215, y: 278, width: 125, height: 105 }, { x: 495, y: 280, width: 125, height: 104 }, { x: 340, y: 432, width: 126, height: 101 },
+  { kind: 'circle', x: 400, y: 252, radius: 37 }, { kind: 'circle', x: 705, y: 505, radius: 44 },
+  { kind: 'circle', x: 70, y: 470, radius: 34 }, { kind: 'circle', x: 744, y: 110, radius: 36 },
 ];
 const grandVillageObstacles = [
   { x: 150, y: 104, width: 136, height: 98 }, { x: 418, y: 93, width: 154, height: 105 },
@@ -1157,10 +1147,10 @@ function drawVillageBackground() {
     map.forEach((row, rowIndex) => [...row].forEach((tile, colIndex) => drawTile(tile, colIndex * TILE, rowIndex * TILE)));
     return;
   }
-  ctx.drawImage(villageBackground, 0, 0, canvas.width, canvas.height);
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(villageBackground, 0, 0, canvas.width, canvas.height); ctx.restore();
   const vignette = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 140, canvas.width / 2, canvas.height / 2, 570);
   vignette.addColorStop(0, 'rgba(13, 33, 40, 0)');
-  vignette.addColorStop(1, 'rgba(3, 10, 25, .33)');
+  vignette.addColorStop(1, 'rgba(3, 10, 25, .16)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -1370,7 +1360,7 @@ function drawFountain() {
 }
 
 function drawGrandVillageStairs() {
-  const x = 63; const y = 329;
+  const x = 73; const y = 390;
   ctx.save();
   ctx.globalAlpha = .62 + Math.sin(performance.now() / 420) * .12;
   ctx.strokeStyle = '#b8eaff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 20, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
